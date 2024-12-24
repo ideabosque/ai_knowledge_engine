@@ -55,13 +55,13 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
     wait=wait_exponential(multiplier=1, min=4, max=10),
     reraise=True,
 )
-def get_document(document_type: str, document_uuid: str) -> DocumentModel:
-    return DocumentModel.get(document_type, document_uuid)
+def get_document(document_source: str, document_uuid: str) -> DocumentModel:
+    return DocumentModel.get(document_source, document_uuid)
 
 
-def get_documnent_count(document_type: str, document_uuid: str) -> int:
+def get_document_count(document_source: str, document_uuid: str) -> int:
     return DocumentModel.count(
-        document_type, DocumentModel.document_uuid == document_uuid
+        document_source, DocumentModel.document_uuid == document_uuid
     )
 
 
@@ -70,23 +70,23 @@ def get_document_type(info: ResolveInfo, document: DocumentModel) -> DocumentTyp
     return DocumentType(**Utility.json_loads(Utility.json_dumps(document)))
 
 
-def resolve_documnent_handler(
+def resolve_document_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> DocumentType:
     return get_document_type(
-        info, get_document(kwargs.get("document_type"), kwargs.get("document_uuid"))
+        info, get_document(kwargs.get("document_source"), kwargs.get("document_uuid"))
     )
 
 
 @monitor_decorator
 @resolve_list_decorator(
-    attributes_to_get=["document_type", "document_uuid"],
+    attributes_to_get=["document_source", "document_uuid"],
     list_type_class=DocumentListType,
     type_funct=get_document_type,
 )
 def resolve_document_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
-    document_type = kwargs.get("document_type")
-    document_sources = kwargs.get("document_sources")
+    document_source = kwargs.get("document_source")
+    document_types = kwargs.get("document_types")
     document_title = kwargs.get("document_title")
     document_content = kwargs.get("document_content")
     statuses = kwargs.get("statuses")
@@ -94,13 +94,13 @@ def resolve_document_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
     args = []
     inquiry_funct = DocumentModel.scan
     count_funct = DocumentModel.count
-    if document_type:
-        args = [document_type, None]
+    if document_source:
+        args = [document_source, None]
         inquiry_funct = DocumentModel.query
 
     the_filters = None  # We can add filters for the query.
-    if document_sources:
-        the_filters &= DocumentModel.document_source.is_in(*document_sources)
+    if document_types:
+        the_filters &= DocumentModel.document_type.is_in(*document_types)
     if document_title:
         the_filters &= DocumentModel.document_title.contains(document_title)
     if document_content:
@@ -116,11 +116,11 @@ def resolve_document_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
 
 @insert_update_decorator(
     keys={
-        "hash_key": "document_type",
+        "hash_key": "document_source",
         "range_key": "document_uuid",
     },
     model_funct=get_document,
-    count_funct=get_documnent_count,
+    count_funct=get_document_count,
     type_funct=get_document_type,
     # data_attributes_except_for_data_diff=data_attributes_except_for_data_diff,
     # activity_history_funct=None,
@@ -128,12 +128,12 @@ def resolve_document_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
 def insert_update_document_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> DocumentType:
-    document_type = kwargs.get("document_type")
+    document_source = kwargs.get("document_source")
     document_uuid = kwargs.get("document_uuid")
     if kwargs.get("entity") is None:
         cols = {
-            "document_source": kwargs["document_source"],
             "document_external_id": kwargs["document_external_id"],
+            "document_type": kwargs["document_type"],
             "document_title": kwargs["document_title"],
             "document_content": kwargs["document_content"],
             "updated_by": kwargs["updated_by"],
@@ -149,7 +149,7 @@ def insert_update_document_handler(
         if kwargs.get("status") is not None:
             cols["status"] = kwargs["status"]
         DocumentModel(
-            document_type,
+            document_source,
             document_uuid,
             **cols,
         ).save()
@@ -183,7 +183,7 @@ def insert_update_document_handler(
 
 @delete_decorator(
     keys={
-        "hash_key": "document_type",
+        "hash_key": "document_source",
         "range_key": "document_uuid",
     },
     model_funct=get_document,
@@ -204,7 +204,7 @@ def get_document_source(
     return DocumentSourceModel.get(document_type, document_source)
 
 
-def get_documnent_source_count(document_type: str, document_source: str) -> int:
+def get_document_source_count(document_type: str, document_source: str) -> int:
     return DocumentSourceModel.count(
         document_type, DocumentSourceModel.document_source == document_source
     )
@@ -217,7 +217,7 @@ def get_document_source_type(
     return DocumentSourceType(**Utility.json_loads(Utility.json_dumps(document_source)))
 
 
-def resolve_documnent_source_handler(
+def resolve_document_source_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> DocumentSourceType:
     return get_document_source_type(
@@ -265,7 +265,7 @@ def resolve_document_source_list_handler(
     },
     range_key_required=True,
     model_funct=get_document_source,
-    count_funct=get_documnent_source_count,
+    count_funct=get_document_source_count,
     type_funct=get_document_source_type,
     # data_attributes_except_for_data_diff=data_attributes_except_for_data_diff,
     # activity_history_funct=None,
@@ -330,14 +330,16 @@ def delete_document_source_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) 
     reraise=True,
 )
 def get_document_process_task(
-    document_type: str, process_task_uuid: str
+    document_source: str, process_task_uuid: str
 ) -> DocumentProcessTaskModel:
-    return DocumentProcessTaskModel.get(document_type, process_task_uuid)
+    return DocumentProcessTaskModel.get(document_source, process_task_uuid)
 
 
-def get_documnent_process_task_count(document_type: str, process_task_uuid: str) -> int:
+def get_document_process_task_count(
+    document_source: str, process_task_uuid: str
+) -> int:
     return DocumentProcessTaskModel.count(
-        document_type, DocumentProcessTaskModel.process_task_uuid == process_task_uuid
+        document_source, DocumentProcessTaskModel.process_task_uuid == process_task_uuid
     )
 
 
@@ -350,13 +352,13 @@ def get_document_process_task_type(
     )
 
 
-def resolve_documnent_process_task_handler(
+def resolve_document_process_task_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> DocumentProcessTaskType:
     return get_document_process_task_type(
         info,
         get_document_process_task(
-            kwargs.get("document_type"), kwargs.get("process_task_uuid")
+            kwargs.get("document_source"), kwargs.get("process_task_uuid")
         ),
     )
 
@@ -369,19 +371,19 @@ def resolve_documnent_process_task_handler(
 def resolve_document_process_task_list_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> Any:
-    document_type = kwargs.get("document_type")
-    document_sources = kwargs.get("document_sources")
+    document_source = kwargs.get("document_source")
+    document_types = kwargs.get("document_types")
     process_statuses = kwargs.get("process_statuses")
     args = []
     inquiry_funct = DocumentProcessTaskModel.scan
     count_funct = DocumentProcessTaskModel.count
-    if document_type:
-        args = [document_type, None]
+    if document_source:
+        args = [document_source, None]
         inquiry_funct = DocumentProcessTaskModel.query
 
     the_filters = None  # We can add filters for the query.
-    if document_sources:
-        the_filters &= DocumentProcessTaskModel.document_source.is_in(*document_sources)
+    if document_types:
+        the_filters &= DocumentProcessTaskModel.document_type.is_in(*document_types)
     if process_statuses:
         the_filters &= DocumentProcessTaskModel.process_status.is_in(*process_statuses)
 
@@ -397,7 +399,7 @@ def resolve_document_process_task_list_handler(
         "range_key": "process_task_uuid",
     },
     model_funct=get_document_process_task,
-    count_funct=get_documnent_process_task_count,
+    count_funct=get_document_process_task_count,
     type_funct=get_document_process_task_type,
     # data_attributes_except_for_data_diff=data_attributes_except_for_data_diff,
     # activity_history_funct=None,
@@ -405,17 +407,16 @@ def resolve_document_process_task_list_handler(
 def insert_update_document_process_task_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> DocumentProcessTaskType:
-    document_type = kwargs.get("document_type")
+    document_source = kwargs.get("document_source")
     process_task_uuid = kwargs.get("process_task_uuid")
     if kwargs.get("entity") is None:
         cols = {
-            "document_source": kwargs["document_source"],
-            "entities": kwargs["entities"],
+            "document_type": kwargs["document_type"],
             "start_time": pendulum.now("UTC"),
         }
         if kwargs.get("process_status") is not None:
             cols["process_status"] = kwargs["process_status"]
-        DocumentProcessTaskModel(document_type, process_task_uuid, **cols).save()
+        DocumentProcessTaskModel(document_source, process_task_uuid, **cols).save()
         return
 
     document_process_task = kwargs.get("entity")
@@ -425,7 +426,6 @@ def insert_update_document_process_task_handler(
 
     # Map of kwargs keys to document_process_task attributes
     field_map = {
-        "entities": DocumentProcessTaskModel.entities,
         "process_status": DocumentProcessTaskModel.process_status,
         "process_note": DocumentProcessTaskModel.process_note,
         "cut_time": DocumentProcessTaskModel.cut_time,

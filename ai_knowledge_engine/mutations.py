@@ -131,10 +131,9 @@ class InsertUpdateDocumentProcessTask(Mutation):
     document_process_task = Field(DocumentProcessTaskType)
 
     class Arguments:
-        document_type = String(required=True)
+        document_source = String(required=True)
         process_task_uuid = String(required=False)
-        document_source = String(required=False)
-        entities = List(JSON, required=False)
+        document_type = String(required=False)
         process_status = String(required=False)
         process_note = String(required=False)
         cut_time = DateTime(required=False)

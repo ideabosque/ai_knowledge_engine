@@ -17,20 +17,6 @@ from pynamodb.indexes import AllProjection, LocalSecondaryIndex
 from silvaengine_dynamodb_base import BaseModel
 
 
-class DocumentSourceIndex(LocalSecondaryIndex):
-    class Meta:
-        # index_name is optional, but can be provided to override the default name
-        index_name = "document_source-index"
-        billing_mode = "PAY_PER_REQUEST"
-        projection = AllProjection()
-
-    # This attribute is the hash key for the index
-    # Note that this attribute must also exist
-    # in the model
-    document_type = UnicodeAttribute(hash_key=True)
-    document_source = UnicodeAttribute(range_key=True)
-
-
 class DocumentExternalIdIndex(LocalSecondaryIndex):
     class Meta:
         # index_name is optional, but can be provided to override the default name
@@ -49,10 +35,10 @@ class DocumentModel(BaseModel):
     class Meta(BaseModel.Meta):
         table_name = "ake-documents"
 
-    document_type = UnicodeAttribute(hash_key=True)
+    document_source = UnicodeAttribute(hash_key=True)
     document_uuid = UnicodeAttribute(range_key=True)
-    document_source = UnicodeAttribute()
     document_external_id = UnicodeAttribute()
+    document_type = UnicodeAttribute()
     document_title = UnicodeAttribute()
     document_content = UnicodeAttribute()
     title_embedding = ListAttribute(of=NumberAttribute, default=[])
@@ -62,7 +48,6 @@ class DocumentModel(BaseModel):
     updated_by = UnicodeAttribute()
     created_at = UTCDateTimeAttribute()
     updated_at = UTCDateTimeAttribute()
-    document_source_index = DocumentSourceIndex()
     document_external_id_index = DocumentExternalIdIndex()
 
 
@@ -80,34 +65,18 @@ class DocumentSourceModel(BaseModel):
     updated_at = UTCDateTimeAttribute()
 
 
-class DocumentProcessTaskDocumentSourceIndex(LocalSecondaryIndex):
-    class Meta:
-        # index_name is optional, but can be provided to override the default name
-        index_name = "document_source-index"
-        billing_mode = "PAY_PER_REQUEST"
-        projection = AllProjection()
-
-    # This attribute is the hash key for the index
-    # Note that this attribute must also exist
-    # in the model
-    document_type = UnicodeAttribute(hash_key=True)
-    document_source = UnicodeAttribute(range_key=True)
-
-
 class DocumentProcessTaskModel(BaseModel):
     class Meta(BaseModel.Meta):
         table_name = "ake-document_process_tasks"
 
-    document_type = UnicodeAttribute(hash_key=True)
+    document_source = UnicodeAttribute(hash_key=True)
     process_task_uuid = UnicodeAttribute(range_key=True)
-    document_source = UnicodeAttribute()
-    entities = ListAttribute(of=MapAttribute)
+    document_type = UnicodeAttribute()
     process_status = UnicodeAttribute(default="initial")
     process_note = UnicodeAttribute(null=True)
     cut_time = UTCDateTimeAttribute(null=True)
     start_time = UTCDateTimeAttribute()
     end_time = UTCDateTimeAttribute(null=True)
-    document_source_index = DocumentProcessTaskDocumentSourceIndex()
 
 
 class KnowledgeGraphMetadataDocumentSourceIndex(LocalSecondaryIndex):

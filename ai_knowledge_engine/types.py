@@ -21,10 +21,10 @@ from silvaengine_utility import JSON
 
 
 class DocumentType(ObjectType):
-    document_type = String()
-    document_uuid = String()
     document_source = String()
+    document_uuid = String()
     document_external_id = String()
+    document_type = String()
     document_title = String()
     document_content = String()
     title_embedding = List(Float)
@@ -48,10 +48,9 @@ class DocumentSourceType(ObjectType):
 
 
 class DocumentProcessTaskType(ObjectType):
-    document_type = String()
-    process_task_uuid = String()
     document_source = String()
-    entities = List(JSON)
+    process_task_uuid = String()
+    document_type = String()
     process_status = String()
     process_note = String()
     cut_time = DateTime()

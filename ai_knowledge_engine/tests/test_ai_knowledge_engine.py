@@ -77,10 +77,10 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "documentType": "XXXXXXXXXXXXXXXXXXX",
-                "documentUuid": "14887255373092557295",
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
+                "documentUuid": "8073934999525134831",
                 "documentExternalId": "XXXXXXXXXXXXXXXXXXX",
+                "documentType": "XXXXXXXXXXXXXXXXXXX",
                 "documentTitle": "XXXXXXXXXXXXXXXXXXX",
                 "documentContent": "XXXXXXXXXXXXXXXXXXX",
                 "updatedBy": "XXXXXXXXXXXXXXXXXXX",
@@ -98,35 +98,35 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "documentType": "XXXXXXXXXXXXXXXXXXX",
-                "documentUuid": "8480702405702324719",
+                "documentSource": "XXXXXXXXXXXXXXXXXXX",
+                "documentUuid": "8073934999525134831",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
-    def test_graphql_get_document(self):
+    def test_graphql_document(self):
         query = Utility.generate_graphql_operation("document", "Query", self.schema)
         logger.info(f"Query: {query}")
         payload = {
             "query": query,
             "variables": {
-                "documentType": "XXXXXXXXXXXXXXXXXXX",
-                "documentUuid": "14887255373092557295",
+                "documentSource": "XXXXXXXXXXXXXXXXXXX",
+                "documentUuid": "8073934999525134831",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
-    def test_graphql_get_documents(self):
+    # @unittest.skip("demonstrating skipping")
+    def test_graphql_document_list(self):
         query = Utility.generate_graphql_operation("documentList", "Query", self.schema)
         logger.info(f"Query: {query}")
         payload = {
             "query": query,
             "variables": {
-                "documentType": "XXXXXXXXXXXXXXXXXXX",
+                "documentSource": "XXXXXXXXXXXXXXXXXXX",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -169,7 +169,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
-    def test_graphql_get_document_source(self):
+    def test_graphql_document_source(self):
         query = Utility.generate_graphql_operation(
             "documentSource", "Query", self.schema
         )
@@ -208,9 +208,9 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "documentType": "XXXXXXXXXXXXXXXXXXX",
-                "processTaskUuid": "10950541070303039983",
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
+                "processTaskUuid": "3749750466939458031",
+                "documentType": "XXXXXXXXXXXXXXXXXXX",
                 "entities": [],
                 "startTime": "2024-12-24T05:30:08.827734+0000",
                 "updatedBy": "XXXXXXXXXXXXXXXXXXX",
@@ -244,8 +244,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "documentType": "XXXXXXXXXXXXXXXXXXX",
-                "processTaskUuid": "10950541070303039983",
+                "documentSource": "XXXXXXXXXXXXXXXXXXX",
+                "processTaskUuid": "3749750466939458031",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -260,7 +260,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "documentType": "XXXXXXXXXXXXXXXXXXX",
+                "documentSource": "XXXXXXXXXXXXXXXXXXX",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -384,7 +384,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_data_source_list(self):
         query = Utility.generate_graphql_operation(
             "dataSourceList", "Query", self.schema

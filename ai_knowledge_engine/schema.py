@@ -76,7 +76,7 @@ class Query(ObjectType):
 
     document = Field(
         DocumentType,
-        document_type=String(required=True),
+        document_source=String(required=True),
         document_uuid=String(required=True),
     )
 
@@ -84,8 +84,8 @@ class Query(ObjectType):
         DocumentListType,
         page_number=Int(required=False),
         limit=Int(required=False),
-        document_type=String(required=False),
-        document_sources=List(String, required=False),
+        document_source=String(required=False),
+        document_types=List(String, required=False),
         document_list=String(required=False),
         document_content=String(required=False),
         statuses=List(String, required=False),
@@ -108,7 +108,7 @@ class Query(ObjectType):
 
     document_process_task = Field(
         DocumentProcessTaskType,
-        document_type=String(required=True),
+        document_source=String(required=True),
         process_task_uuid=String(required=True),
     )
 
@@ -116,8 +116,8 @@ class Query(ObjectType):
         DocumentProcessTaskListType,
         page_number=Int(required=False),
         limit=Int(required=False),
-        document_type=String(required=False),
-        document_sources=List(String, required=False),
+        document_source=String(required=False),
+        document_types=List(String, required=False),
         process_statuses=List(String, required=False),
     )
 

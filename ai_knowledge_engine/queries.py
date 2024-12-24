@@ -11,12 +11,12 @@ from graphene import ResolveInfo
 from .handlers import (
     resolve_data_source_handler,
     resolve_data_source_list_handler,
+    resolve_document_handler,
     resolve_document_list_handler,
+    resolve_document_process_task_handler,
     resolve_document_process_task_list_handler,
+    resolve_document_source_handler,
     resolve_document_source_list_handler,
-    resolve_documnent_handler,
-    resolve_documnent_process_task_handler,
-    resolve_documnent_source_handler,
     resolve_knowledge_graph_metadata_handler,
     resolve_knowledge_graph_metadata_list_handler,
 )
@@ -35,7 +35,7 @@ from .types import (
 
 
 def resolve_document(info: ResolveInfo, **kwargs: Dict[str, Any]) -> DocumentType:
-    return resolve_documnent_handler(info, **kwargs)
+    return resolve_document_handler(info, **kwargs)
 
 
 def resolve_document_list(
@@ -47,7 +47,7 @@ def resolve_document_list(
 def resolve_document_source(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> DocumentSourceType:
-    return resolve_documnent_source_handler(info, **kwargs)
+    return resolve_document_source_handler(info, **kwargs)
 
 
 def resolve_document_source_list(
@@ -59,7 +59,7 @@ def resolve_document_source_list(
 def resolve_document_process_task(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> DocumentProcessTaskType:
-    return resolve_documnent_process_task_handler(info, **kwargs)
+    return resolve_document_process_task_handler(info, **kwargs)
 
 
 def resolve_document_process_task_list(
