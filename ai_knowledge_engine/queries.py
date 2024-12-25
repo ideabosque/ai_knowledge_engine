@@ -13,6 +13,8 @@ from .handlers import (
     resolve_data_source_list_handler,
     resolve_document_handler,
     resolve_document_list_handler,
+    resolve_document_process_entity_handler,
+    resolve_document_process_entity_list_handler,
     resolve_document_process_task_handler,
     resolve_document_process_task_list_handler,
     resolve_document_source_handler,
@@ -24,6 +26,8 @@ from .types import (
     DataSourceListType,
     DataSourceType,
     DocumentListType,
+    DocumentProcessEntityListType,
+    DocumentProcessEntityType,
     DocumentProcessTaskListType,
     DocumentProcessTaskType,
     DocumentSourceListType,
@@ -66,6 +70,18 @@ def resolve_document_process_task_list(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> DocumentProcessTaskListType:
     return resolve_document_process_task_list_handler(info, **kwargs)
+
+
+def resolve_document_process_entity(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> DocumentProcessEntityType:
+    return resolve_document_process_entity_handler(info, **kwargs)
+
+
+def resolve_document_process_entity_list(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> DocumentProcessEntityListType:
+    return resolve_document_process_entity_list_handler(info, **kwargs)
 
 
 def resolve_data_source(info: ResolveInfo, **kwargs: Dict[str, Any]) -> DataSourceType:

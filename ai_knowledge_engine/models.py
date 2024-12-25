@@ -27,7 +27,7 @@ class DocumentExternalIdIndex(LocalSecondaryIndex):
     # This attribute is the hash key for the index
     # Note that this attribute must also exist
     # in the model
-    document_type = UnicodeAttribute(hash_key=True)
+    document_source = UnicodeAttribute(hash_key=True)
     document_external_id = UnicodeAttribute(range_key=True)
 
 
@@ -79,27 +79,44 @@ class DocumentProcessTaskModel(BaseModel):
     end_time = UTCDateTimeAttribute(null=True)
 
 
-class KnowledgeGraphMetadataDocumentSourceIndex(LocalSecondaryIndex):
+class DocumentProcessEntityDocumentExternalIdIndex(LocalSecondaryIndex):
     class Meta:
         # index_name is optional, but can be provided to override the default name
-        index_name = "document_source-index"
+        index_name = "document_external_id-index"
         billing_mode = "PAY_PER_REQUEST"
         projection = AllProjection()
 
     # This attribute is the hash key for the index
     # Note that this attribute must also exist
     # in the model
-    document_type = UnicodeAttribute(hash_key=True)
-    document_source = UnicodeAttribute(range_key=True)
+    process_task_uuid = UnicodeAttribute(hash_key=True)
+    document_external_id = UnicodeAttribute(range_key=True)
+
+
+class DocumentProcessEntityModel(BaseModel):
+    class Meta(BaseModel.Meta):
+        table_name = "ake-document_process_entities"
+
+    process_task_uuid = UnicodeAttribute(hash_key=True)
+    document_entity_uuid = UnicodeAttribute(range_key=True)
+    document_external_id = UnicodeAttribute()
+    document_source = UnicodeAttribute()
+    document_version = UnicodeAttribute()
+    log = UnicodeAttribute(null=True)
+    status = UnicodeAttribute(default="initial")
+    updated_by = UnicodeAttribute()
+    created_at = UTCDateTimeAttribute()
+    updated_at = UTCDateTimeAttribute()
+    document_external_id_index = DocumentProcessEntityDocumentExternalIdIndex()
 
 
 class KnowledgeGraphMetadataModel(BaseModel):
     class Meta(BaseModel.Meta):
         table_name = "ake-knowledge_graph_metadata"
 
-    document_type = UnicodeAttribute(hash_key=True)
+    document_source = UnicodeAttribute(hash_key=True)
     metadata_version_uuid = UnicodeAttribute(range_key=True)
-    document_source = UnicodeAttribute()
+    document_type = UnicodeAttribute()
     data_source_name = UnicodeAttribute()
     data_source_type = UnicodeAttribute()
     data_view_name = UnicodeAttribute()
@@ -110,7 +127,6 @@ class KnowledgeGraphMetadataModel(BaseModel):
     created_at = UTCDateTimeAttribute()
     updated_by = UnicodeAttribute()
     updated_at = UTCDateTimeAttribute()
-    document_source_index = KnowledgeGraphMetadataDocumentSourceIndex()
 
 
 class DataSourceModel(BaseModel):

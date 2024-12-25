@@ -21,10 +21,9 @@ from silvaengine_utility import JSON
 
 
 class DocumentType(ObjectType):
-    document_source = String()
+    document_source = JSON()
     document_uuid = String()
     document_external_id = String()
-    document_type = String()
     document_title = String()
     document_content = String()
     title_embedding = List(Float)
@@ -48,9 +47,8 @@ class DocumentSourceType(ObjectType):
 
 
 class DocumentProcessTaskType(ObjectType):
-    document_source = String()
+    document_source = JSON()
     process_task_uuid = String()
-    document_type = String()
     process_status = String()
     process_note = String()
     cut_time = DateTime()
@@ -58,12 +56,22 @@ class DocumentProcessTaskType(ObjectType):
     end_time = DateTime()
 
 
+class DocumentProcessEntityType(ObjectType):
+    document_process_task = JSON()
+    document_entity_uuid = String()
+    document_external_id = String()
+    document_version = String()
+    log = String()
+    status = String()
+    updated_by = String()
+    updated_at = DateTime()
+    created_at = DateTime()
+
+
 class KnowledgeGraphMetadataType(ObjectType):
-    document_type = String()
+    document_source = JSON()
     metadata_version_uuid = String()
-    document_source = String()
-    data_source_name = String()
-    data_source_type = String()
+    data_source = JSON()
     data_view_name = String()
     structured_fields = List(JSON)
     unstructured_attributes = List(JSON)
@@ -96,6 +104,10 @@ class DocumentSourceListType(ListObjectType):
 
 class DocumentProcessTaskListType(ListObjectType):
     document_process_task_list = List(DocumentProcessTaskType)
+
+
+class DocumentProcessEntityListType(ListObjectType):
+    document_process_entity_list = List(DocumentProcessEntityType)
 
 
 class KnowledgeGraphMetadataListType(ListObjectType):

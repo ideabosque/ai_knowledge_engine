@@ -119,7 +119,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_document_list(self):
         query = Utility.generate_graphql_operation("documentList", "Query", self.schema)
         logger.info(f"Query: {query}")
@@ -127,6 +127,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             "query": query,
             "variables": {
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
+                "documentExternalId": "XXXXXXXXXXXXXXXXXXX",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -267,6 +268,74 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         logger.info(response)
 
     @unittest.skip("demonstrating skipping")
+    def test_graphql_insert_update_document_process_task_entity(self):
+        query = Utility.generate_graphql_operation(
+            "insertUpdateDocumentProcessEntity", "Mutation", self.schema
+        )
+        logger.info(f"Query: {query}")
+        payload = {
+            "query": query,
+            "variables": {
+                "processTaskUuid": "XXXXXXXXXXXXXXXXXXX",
+                "documentEntityUuid": "8075064008990331375",
+                "documentExternalId": "XXXXXXXXXXXXXXXXXXX",
+                "documentSource": "XXXXXXXXXXXXXXXXXXX",
+                "documentVersion": "XXXXXXXXXXXXXXXXXXX",
+                "updatedBy": "XXXXXXXXXXXXXXXXXXX",
+            },
+        }
+        response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_delete_document_process_task_entity(self):
+        query = Utility.generate_graphql_operation(
+            "deleteDocumentProcessEntity", "Mutation", self.schema
+        )
+        logger.info(f"Query: {query}")
+        payload = {
+            "query": query,
+            "variables": {
+                "processTaskUuid": "XXXXXXXXXXXXXXXXXXX",
+                "documentEntityUuid": "2207217888910709231",
+            },
+        }
+        response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
+    def test_graphql_document_process_entity(self):
+        query = Utility.generate_graphql_operation(
+            "documentProcessEntity", "Query", self.schema
+        )
+        logger.info(f"Query: {query}")
+        payload = {
+            "query": query,
+            "variables": {
+                "processTaskUuid": "3749750466939458031",
+                "documentEntityUuid": "8075064008990331375",
+            },
+        }
+        response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
+        logger.info(response)
+
+    # @unittest.skip("demonstrating skipping")
+    def test_graphql_document_process_entity_list(self):
+        query = Utility.generate_graphql_operation(
+            "documentProcessEntityList", "Query", self.schema
+        )
+        logger.info(f"Query: {query}")
+        payload = {
+            "query": query,
+            "variables": {
+                "processTaskUuid": "3749750466939458031",
+                "documentExternalId": "XXXXXXXXXXXXXXXXXXX",
+            },
+        }
+        response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
     def test_graphql_insert_update_knowledge_graph_metadata(self):
         query = Utility.generate_graphql_operation(
             "insertUpdateKnowledgeGraphMetadata", "Mutation", self.schema
@@ -275,9 +344,9 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "documentType": "XXXXXXXXXXXXXXXXXXX",
-                "metadataVersionUuid": "4261954170568774127",
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
+                "metadataVersionUuid": "2146816827525173743",
+                "documentType": "XXXXXXXXXXXXXXXXXXX",
                 "dataSourceName": "XXXXXXXXXXXXXXXXXXX",
                 "dataSourceType": "XXXXXXXXXXXXXXXXXXX",
                 "dataViewName": "XXXXXXXXXXXXXXXXXXX",
@@ -312,8 +381,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "documentType": "XXXXXXXXXXXXXXXXXXX",
-                "metadataVersionUuid": "4261954170568774127",
+                "documentSource": "XXXXXXXXXXXXXXXXXXX",
+                "metadataVersionUuid": "2146816827525173743",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)

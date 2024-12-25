@@ -21,11 +21,13 @@ from graphene import (
 from .mutations import (
     DeleteDataSource,
     DeleteDocument,
+    DeleteDocumentProcessEntity,
     DeleteDocumentProcessTask,
     DeleteDocumentSource,
     DeleteKnowledgeGraphMetadata,
     InsertUpdateDataSource,
     InsertUpdateDocument,
+    InsertUpdateDocumentProcessEntity,
     InsertUpdateDocumentProcessTask,
     InsertUpdateDocumentSource,
     InsertUpdateKnowledgeGraphMetadata,
@@ -35,6 +37,8 @@ from .queries import (
     resolve_data_source_list,
     resolve_document,
     resolve_document_list,
+    resolve_document_process_entity,
+    resolve_document_process_entity_list,
     resolve_document_process_task,
     resolve_document_process_task_list,
     resolve_document_source,
@@ -46,6 +50,8 @@ from .types import (
     DataSourceListType,
     DataSourceType,
     DocumentListType,
+    DocumentProcessEntityListType,
+    DocumentProcessEntityType,
     DocumentProcessTaskListType,
     DocumentProcessTaskType,
     DocumentSourceListType,
@@ -68,6 +74,8 @@ def type_class():
         DocumentType,
         KnowledgeGraphMetadataListType,
         KnowledgeGraphMetadataType,
+        DocumentProcessEntityType,
+        DocumentProcessEntityListType,
     ]
 
 
@@ -85,8 +93,9 @@ class Query(ObjectType):
         page_number=Int(required=False),
         limit=Int(required=False),
         document_source=String(required=False),
+        document_external_id=String(required=False),
         document_types=List(String, required=False),
-        document_list=String(required=False),
+        document_title=String(required=False),
         document_content=String(required=False),
         statuses=List(String, required=False),
     )
@@ -121,9 +130,25 @@ class Query(ObjectType):
         process_statuses=List(String, required=False),
     )
 
+    document_process_entity = Field(
+        DocumentProcessEntityType,
+        process_task_uuid=String(required=True),
+        document_entity_uuid=String(required=True),
+    )
+
+    document_process_entity_list = Field(
+        DocumentProcessEntityListType,
+        page_number=Int(required=False),
+        limit=Int(required=False),
+        process_task_uuid=String(required=False),
+        document_external_id=String(required=False),
+        document_sources=List(String, required=False),
+        document_version=String(required=False),
+    )
+
     knowledge_graph_metadata = Field(
         KnowledgeGraphMetadataType,
-        document_type=String(required=True),
+        document_source=String(required=True),
         metadata_version_uuid=String(required=True),
     )
 
@@ -183,6 +208,16 @@ class Query(ObjectType):
     ) -> Any:
         return resolve_document_process_task_list(info, **kwargs)
 
+    def resolve_document_process_entity(
+        self, info: ResolveInfo, **kwargs: Dict[str, Any]
+    ) -> Any:
+        return resolve_document_process_entity(info, **kwargs)
+
+    def resolve_document_process_entity_list(
+        self, info: ResolveInfo, **kwargs: Dict[str, Any]
+    ) -> Any:
+        return resolve_document_process_entity_list(info, **kwargs)
+
     def resolve_knowledge_graph_metadata(
         self, info: ResolveInfo, **kwargs: Dict[str, Any]
     ) -> Any:
@@ -209,6 +244,8 @@ class Mutations(ObjectType):
     delete_document_source = DeleteDocumentSource.Field()
     insert_update_document_process_task = InsertUpdateDocumentProcessTask.Field()
     delete_document_process_task = DeleteDocumentProcessTask.Field()
+    insert_update_document_process_entity = InsertUpdateDocumentProcessEntity.Field()
+    delete_document_process_entity = DeleteDocumentProcessEntity.Field()
     insert_update_knowledge_graph_metadata = InsertUpdateKnowledgeGraphMetadata.Field()
     delete_knowledge_graph_metadata = DeleteKnowledgeGraphMetadata.Field()
     insert_update_data_source = InsertUpdateDataSource.Field()
