@@ -158,6 +158,8 @@ def insert_update_document_handler(
             "created_at": pendulum.now("UTC"),
             "updated_at": pendulum.now("UTC"),
         }
+        if kwargs.get("chunk_index"):
+            cols["chunk_index"] = kwargs["chunk_index"]
         if kwargs.get("title_embedding") is not None:
             cols["title_embedding"] = kwargs["title_embedding"]
         if kwargs.get("content_embedding") is not None:

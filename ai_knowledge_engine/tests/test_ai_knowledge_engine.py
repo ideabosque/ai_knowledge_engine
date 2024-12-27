@@ -68,7 +68,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_graphql_insert_update_document(self):
         query = Utility.generate_graphql_operation(
             "insertUpdateDocument", "Mutation", self.schema
@@ -78,7 +78,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             "query": query,
             "variables": {
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
-                "documentUuid": "8073934999525134831",
+                "documentUuid": "17576803334570840559",
                 "documentExternalId": "XXXXXXXXXXXXXXXXXXX",
                 "documentType": "XXXXXXXXXXXXXXXXXXX",
                 "documentTitle": "XXXXXXXXXXXXXXXXXXX",
@@ -319,7 +319,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_document_process_entity_list(self):
         query = Utility.generate_graphql_operation(
             "documentProcessEntityList", "Query", self.schema

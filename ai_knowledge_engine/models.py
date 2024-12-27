@@ -38,6 +38,7 @@ class DocumentModel(BaseModel):
     document_source = UnicodeAttribute(hash_key=True)
     document_uuid = UnicodeAttribute(range_key=True)
     document_external_id = UnicodeAttribute()
+    chunk_index = NumberAttribute(default=0)
     document_type = UnicodeAttribute()
     document_title = UnicodeAttribute()
     document_content = UnicodeAttribute()

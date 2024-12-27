@@ -24,6 +24,7 @@ class DocumentType(ObjectType):
     document_source = JSON()
     document_uuid = String()
     document_external_id = String()
+    chunk_index = Int()
     document_title = String()
     document_content = String()
     title_embedding = List(Float)
