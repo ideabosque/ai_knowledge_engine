@@ -68,7 +68,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_insert_update_document(self):
         query = Utility.generate_graphql_operation(
             "insertUpdateDocument", "Mutation", self.schema
@@ -128,73 +128,6 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             "variables": {
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
                 "documentExternalId": "XXXXXXXXXXXXXXXXXXX",
-            },
-        }
-        response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
-        logger.info(response)
-
-    @unittest.skip("demonstrating skipping")
-    def test_graphql_insert_update_document_source(self):
-        query = Utility.generate_graphql_operation(
-            "insertUpdateDocumentSource", "Mutation", self.schema
-        )
-        logger.info(f"Query: {query}")
-        payload = {
-            "query": query,
-            "variables": {
-                "documentType": "XXXXXXXXXXXXXXXXXXX",
-                "documentSource": "XXXXXXXXXXXXXXXXXXX",
-                "moduleName": "XXXXXXXXXXXXXXXXXXX",
-                "className": "XXXXXXXXXXXXXXXXXXX",
-                "configuration": {},
-                "updatedBy": "XXXXXXXXXXXXXXXXXXX",
-            },
-        }
-        response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
-        logger.info(response)
-
-    @unittest.skip("demonstrating skipping")
-    def test_graphql_delete_document_source(self):
-        query = Utility.generate_graphql_operation(
-            "deleteDocumentSource", "Mutation", self.schema
-        )
-        logger.info(f"Query: {query}")
-        payload = {
-            "query": query,
-            "variables": {
-                "documentType": "XXXXXXXXXXXXXXXXXXX",
-                "documentSource": "XXXXXXXXXXXXXXXXXXX",
-            },
-        }
-        response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
-        logger.info(response)
-
-    @unittest.skip("demonstrating skipping")
-    def test_graphql_document_source(self):
-        query = Utility.generate_graphql_operation(
-            "documentSource", "Query", self.schema
-        )
-        logger.info(f"Query: {query}")
-        payload = {
-            "query": query,
-            "variables": {
-                "documentType": "XXXXXXXXXXXXXXXXXXX",
-                "documentSource": "XXXXXXXXXXXXXXXXXXX",
-            },
-        }
-        response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
-        logger.info(response)
-
-    @unittest.skip("demonstrating skipping")
-    def test_graphql_document_source_list(self):
-        query = Utility.generate_graphql_operation(
-            "documentSourceList", "Query", self.schema
-        )
-        logger.info(f"Query: {query}")
-        payload = {
-            "query": query,
-            "variables": {
-                "documentType": "XXXXXXXXXXXXXXXXXXX",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -276,8 +209,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "processTaskUuid": "XXXXXXXXXXXXXXXXXXX",
-                "documentEntityUuid": "8075064008990331375",
+                "processTaskUuid": "3749750466939458031",
+                "documentEntityUuid": "3779819455720853999",
                 "documentExternalId": "XXXXXXXXXXXXXXXXXXX",
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
                 "documentVersion": "XXXXXXXXXXXXXXXXXXX",
@@ -313,7 +246,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             "query": query,
             "variables": {
                 "processTaskUuid": "3749750466939458031",
-                "documentEntityUuid": "8075064008990331375",
+                "documentEntityUuid": "3779819455720853999",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -345,11 +278,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             "query": query,
             "variables": {
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
-                "metadataVersionUuid": "2146816827525173743",
+                "metadataVersionUuid": "8049749214099083759",
                 "documentType": "XXXXXXXXXXXXXXXXXXX",
-                "dataSourceName": "XXXXXXXXXXXXXXXXXXX",
-                "dataSourceType": "XXXXXXXXXXXXXXXXXXX",
-                "dataViewName": "XXXXXXXXXXXXXXXXXXX",
                 "updatedBy": "XXXXXXXXXXXXXXXXXXX",
             },
         }
@@ -388,7 +318,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_graphql_knowledge_graph_metadata_list(self):
         query = Utility.generate_graphql_operation(
             "knowledgeGraphMetadataList", "Query", self.schema

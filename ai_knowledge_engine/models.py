@@ -44,26 +44,10 @@ class DocumentModel(BaseModel):
     document_content = UnicodeAttribute()
     title_embedding = ListAttribute(of=NumberAttribute, default=[])
     content_embedding = ListAttribute(of=NumberAttribute, default=[])
-    log = UnicodeAttribute(null=True)
-    status = UnicodeAttribute(default="initial")
     updated_by = UnicodeAttribute()
     created_at = UTCDateTimeAttribute()
     updated_at = UTCDateTimeAttribute()
     document_external_id_index = DocumentExternalIdIndex()
-
-
-class DocumentSourceModel(BaseModel):
-    class Meta(BaseModel.Meta):
-        table_name = "ake-document_sources"
-
-    document_type = UnicodeAttribute(hash_key=True)
-    document_source = UnicodeAttribute(range_key=True)
-    module_name = UnicodeAttribute()
-    class_name = UnicodeAttribute()
-    configuration = MapAttribute()
-    updated_by = UnicodeAttribute()
-    created_at = UTCDateTimeAttribute()
-    updated_at = UTCDateTimeAttribute()
 
 
 class DocumentProcessTaskModel(BaseModel):
@@ -103,7 +87,7 @@ class DocumentProcessEntityModel(BaseModel):
     document_external_id = UnicodeAttribute()
     document_source = UnicodeAttribute()
     document_version = UnicodeAttribute()
-    log = UnicodeAttribute(null=True)
+    logs = ListAttribute(of=MapAttribute, default=[])
     status = UnicodeAttribute(default="initial")
     updated_by = UnicodeAttribute()
     created_at = UTCDateTimeAttribute()
@@ -118,9 +102,7 @@ class KnowledgeGraphMetadataModel(BaseModel):
     document_source = UnicodeAttribute(hash_key=True)
     metadata_version_uuid = UnicodeAttribute(range_key=True)
     document_type = UnicodeAttribute()
-    data_source_name = UnicodeAttribute()
-    data_source_type = UnicodeAttribute()
-    data_view_name = UnicodeAttribute()
+    structured_data_views = ListAttribute(of=MapAttribute, default=[])
     structured_fields = ListAttribute(of=MapAttribute, default=[])
     unstructured_attributes = ListAttribute(of=MapAttribute, default=[])
     linkage_rules = ListAttribute(of=MapAttribute, default=[])
@@ -143,3 +125,16 @@ class DataSourceModel(BaseModel):
     created_at = UTCDateTimeAttribute()
     updated_by = UnicodeAttribute()
     updated_at = UTCDateTimeAttribute()
+
+
+class RequestModel(BaseModel):
+    class Meta(BaseModel.Meta):
+        table_name = "ake-requests"
+
+    data_type = UnicodeAttribute(hash_key=True)
+    request_uuid = UnicodeAttribute(range_key=True)
+    user_inquiry = UnicodeAttribute()
+    generated_query = UnicodeAttribute(null=True)
+    result = ListAttribute(of=MapAttribute, default=[])
+    request_note = UnicodeAttribute(null=True)
+    created_at = UTCDateTimeAttribute()

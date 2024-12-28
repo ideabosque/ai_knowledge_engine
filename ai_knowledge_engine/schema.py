@@ -23,13 +23,11 @@ from .mutations import (
     DeleteDocument,
     DeleteDocumentProcessEntity,
     DeleteDocumentProcessTask,
-    DeleteDocumentSource,
     DeleteKnowledgeGraphMetadata,
     InsertUpdateDataSource,
     InsertUpdateDocument,
     InsertUpdateDocumentProcessEntity,
     InsertUpdateDocumentProcessTask,
-    InsertUpdateDocumentSource,
     InsertUpdateKnowledgeGraphMetadata,
 )
 from .queries import (
@@ -41,8 +39,6 @@ from .queries import (
     resolve_document_process_entity_list,
     resolve_document_process_task,
     resolve_document_process_task_list,
-    resolve_document_source,
-    resolve_document_source_list,
     resolve_knowledge_graph_metadata,
     resolve_knowledge_graph_metadata_list,
 )
@@ -54,8 +50,6 @@ from .types import (
     DocumentProcessEntityType,
     DocumentProcessTaskListType,
     DocumentProcessTaskType,
-    DocumentSourceListType,
-    DocumentSourceType,
     DocumentType,
     KnowledgeGraphMetadataListType,
     KnowledgeGraphMetadataType,
@@ -69,8 +63,6 @@ def type_class():
         DocumentListType,
         DocumentProcessTaskListType,
         DocumentProcessTaskType,
-        DocumentSourceListType,
-        DocumentSourceType,
         DocumentType,
         KnowledgeGraphMetadataListType,
         KnowledgeGraphMetadataType,
@@ -98,21 +90,6 @@ class Query(ObjectType):
         document_title=String(required=False),
         document_content=String(required=False),
         statuses=List(String, required=False),
-    )
-
-    document_source = Field(
-        DocumentSourceType,
-        document_type=String(required=True),
-        document_source=String(required=True),
-    )
-
-    document_source_list = Field(
-        DocumentSourceListType,
-        page_number=Int(required=False),
-        limit=Int(required=False),
-        document_type=String(required=False),
-        module_name=String(required=False),
-        class_name=String(required=False),
     )
 
     document_process_task = Field(
@@ -188,16 +165,6 @@ class Query(ObjectType):
     def resolve_document_list(self, info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
         return resolve_document_list(info, **kwargs)
 
-    def resolve_document_source(
-        self, info: ResolveInfo, **kwargs: Dict[str, Any]
-    ) -> Any:
-        return resolve_document_source(info, **kwargs)
-
-    def resolve_document_source_list(
-        self, info: ResolveInfo, **kwargs: Dict[str, Any]
-    ) -> Any:
-        return resolve_document_source_list(info, **kwargs)
-
     def resolve_document_process_task(
         self, info: ResolveInfo, **kwargs: Dict[str, Any]
     ) -> Any:
@@ -240,8 +207,6 @@ class Query(ObjectType):
 class Mutations(ObjectType):
     insert_update_document = InsertUpdateDocument.Field()
     delete_document = DeleteDocument.Field()
-    insert_update_document_source = InsertUpdateDocumentSource.Field()
-    delete_document_source = DeleteDocumentSource.Field()
     insert_update_document_process_task = InsertUpdateDocumentProcessTask.Field()
     delete_document_process_task = DeleteDocumentProcessTask.Field()
     insert_update_document_process_entity = InsertUpdateDocumentProcessEntity.Field()

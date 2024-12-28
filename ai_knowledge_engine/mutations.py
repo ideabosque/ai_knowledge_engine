@@ -16,20 +16,17 @@ from .handlers import (
     delete_document_handler,
     delete_document_process_entity_handler,
     delete_document_process_task_handler,
-    delete_document_source_handler,
     delete_knowledge_graph_metadata_handler,
     insert_update_data_source_handler,
     insert_update_document_handler,
     insert_update_document_process_entity_handler,
     insert_update_document_process_task_handler,
-    insert_update_document_source_handler,
     insert_update_knowledge_graph_metadata_handler,
 )
 from .types import (
     DataSourceType,
     DocumentProcessEntityType,
     DocumentProcessTaskType,
-    DocumentSourceType,
     DocumentType,
     KnowledgeGraphMetadataType,
 )
@@ -82,52 +79,6 @@ class DeleteDocument(Mutation):
             raise e
 
         return DeleteDocument(ok=ok)
-
-
-class InsertUpdateDocumentSource(Mutation):
-    document_source = Field(DocumentSourceType)
-
-    class Arguments:
-        document_type = String(required=True)
-        document_source = String(required=False)
-        module_name = String(required=False)
-        class_name = String(required=False)
-        configuration = JSON(required=False)
-        updated_by = String(required=True)
-
-    @staticmethod
-    def mutate(
-        root: Any, info: Any, **kwargs: Dict[str, Any]
-    ) -> "InsertUpdateDocumentSource":
-        try:
-            document_source = insert_update_document_source_handler(info, **kwargs)
-        except Exception as e:
-            log = traceback.format_exc()
-            info.context.get("logger").error(log)
-            raise e
-
-        return InsertUpdateDocumentSource(document_source=document_source)
-
-
-class DeleteDocumentSource(Mutation):
-    ok = Boolean()
-
-    class Arguments:
-        document_type = String(required=True)
-        document_source = String(required=True)
-
-    @staticmethod
-    def mutate(
-        root: Any, info: Any, **kwargs: Dict[str, Any]
-    ) -> "DeleteDocumentSource":
-        try:
-            ok = delete_document_source_handler(info, **kwargs)
-        except Exception as e:
-            log = traceback.format_exc()
-            info.context.get("logger").error(log)
-            raise e
-
-        return DeleteDocumentSource(ok=ok)
 
 
 class InsertUpdateDocumentProcessTask(Mutation):
@@ -240,9 +191,7 @@ class InsertUpdateKnowledgeGraphMetadata(Mutation):
         document_type = String(required=True)
         metadata_version_uuid = String(required=False)
         document_source = String(required=False)
-        data_source_name = String(required=False)
-        data_source_type = String(required=False)
-        data_view_name = String(required=False)
+        structured_data_views = List(JSON, required=False)
         structured_fields = List(JSON, required=False)
         unstructured_attributes = List(JSON, required=False)
         linkage_rules = List(JSON, required=False)

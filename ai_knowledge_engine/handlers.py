@@ -25,7 +25,6 @@ from .models import (
     DocumentModel,
     DocumentProcessEntityModel,
     DocumentProcessTaskModel,
-    DocumentSourceModel,
     KnowledgeGraphMetadataModel,
 )
 from .types import (
@@ -36,8 +35,6 @@ from .types import (
     DocumentProcessEntityType,
     DocumentProcessTaskListType,
     DocumentProcessTaskType,
-    DocumentSourceListType,
-    DocumentSourceType,
     DocumentType,
     KnowledgeGraphMetadataListType,
     KnowledgeGraphMetadataType,
@@ -70,7 +67,7 @@ def get_document_count(document_source: str, document_uuid: str) -> int:
 
 def get_document_type(info: ResolveInfo, document: DocumentModel) -> DocumentType:
     try:
-        document_source = _get_document_source(
+        document_source = _get_data_source(
             document.document_type, document.document_type
         )
     except Exception as e:
@@ -164,10 +161,6 @@ def insert_update_document_handler(
             cols["title_embedding"] = kwargs["title_embedding"]
         if kwargs.get("content_embedding") is not None:
             cols["content_embedding"] = kwargs["content_embedding"]
-        if kwargs.get("log") is not None:
-            cols["log"] = kwargs["log"]
-        if kwargs.get("status") is not None:
-            cols["status"] = kwargs["status"]
         DocumentModel(
             document_source,
             document_uuid,
@@ -187,8 +180,6 @@ def insert_update_document_handler(
         "document_content": DocumentModel.document_content,
         "title_embedding": DocumentModel.title_embedding,
         "content_embedding": DocumentModel.content_embedding,
-        "log": DocumentModel.log,
-        "status": DocumentModel.status,
     }
 
     # Add actions dynamically based on the presence of keys in kwargs
@@ -209,148 +200,6 @@ def insert_update_document_handler(
     model_funct=get_document,
 )
 def delete_document_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> bool:
-    kwargs.get("entity").delete()
-    return True
-
-
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=4, max=10),
-    reraise=True,
-)
-def get_document_source(
-    document_type: str, document_source: str
-) -> DocumentSourceModel:
-    return DocumentSourceModel.get(document_type, document_source)
-
-
-def get_document_source_count(document_type: str, document_source: str) -> int:
-    return DocumentSourceModel.count(
-        document_type, DocumentSourceModel.document_source == document_source
-    )
-
-
-def _get_document_source(document_type: str, document_source: str) -> Dict[str, Any]:
-    document_source = get_document_source(document_type, document_source)
-    return {
-        "document_type": document_source.document_type,
-        "document_source": document_source.document_source,
-        "module_name": document_source.module_name,
-        "class_name": document_source.class_name,
-        "configuration": document_source.configuration,
-    }
-
-
-def get_document_source_type(
-    info: ResolveInfo, document_source: DocumentSourceModel
-) -> DocumentSourceType:
-    document_source = document_source.__dict__["attribute_values"]
-    return DocumentSourceType(**Utility.json_loads(Utility.json_dumps(document_source)))
-
-
-def resolve_document_source_handler(
-    info: ResolveInfo, **kwargs: Dict[str, Any]
-) -> DocumentSourceType:
-    return get_document_source_type(
-        info,
-        get_document_source(kwargs.get("document_type"), kwargs.get("document_source")),
-    )
-
-
-@monitor_decorator
-@resolve_list_decorator(
-    attributes_to_get=["document_type", "document_source"],
-    list_type_class=DocumentSourceListType,
-    type_funct=get_document_source_type,
-)
-def resolve_document_source_list_handler(
-    info: ResolveInfo, **kwargs: Dict[str, Any]
-) -> Any:
-    document_type = kwargs.get("document_type")
-    module_name = kwargs.get("module_name")
-    class_name = kwargs.get("class_name")
-
-    args = []
-    inquiry_funct = DocumentSourceModel.scan
-    count_funct = DocumentSourceModel.count
-    if document_type:
-        args = [document_type, None]
-        inquiry_funct = DocumentSourceModel.query
-
-    the_filters = None  # We can add filters for the query.
-    if module_name:
-        the_filters &= DocumentSourceModel.module_name.contains(module_name)
-    if class_name:
-        the_filters &= DocumentSourceModel.class_name.contains(class_name)
-
-    if the_filters is not None:
-        args.append(the_filters)
-
-    return inquiry_funct, count_funct, args
-
-
-@insert_update_decorator(
-    keys={
-        "hash_key": "document_type",
-        "range_key": "document_source",
-    },
-    range_key_required=True,
-    model_funct=get_document_source,
-    count_funct=get_document_source_count,
-    type_funct=get_document_source_type,
-    # data_attributes_except_for_data_diff=data_attributes_except_for_data_diff,
-    # activity_history_funct=None,
-)
-def insert_update_document_source_handler(
-    info: ResolveInfo, **kwargs: Dict[str, Any]
-) -> DocumentSourceType:
-    document_type = kwargs.get("document_type")
-    document_source = kwargs.get("document_source")
-    if kwargs.get("entity") is None:
-        DocumentSourceModel(
-            document_type,
-            document_source,
-            module_name=kwargs["module_name"],
-            class_name=kwargs["class_name"],
-            configuration=kwargs["configuration"],
-            updated_by=kwargs["updated_by"],
-            created_at=pendulum.now("UTC"),
-            updated_at=pendulum.now("UTC"),
-        ).save()
-        return
-
-    document_source = kwargs.get("entity")
-    actions = [
-        DocumentSourceModel.updated_by.set(kwargs["updated_by"]),
-        DocumentSourceModel.updated_at.set(pendulum.now("UTC")),
-    ]
-
-    # Map of kwargs keys to DocumentSourceModel attributes
-    field_map = {
-        "module_name": DocumentSourceModel.module_name,
-        "class_name": DocumentSourceModel.class_name,
-        "configuration": DocumentSourceModel.configuration,
-    }
-
-    # Add actions dynamically based on the presence of keys in kwargs
-    for key, field in field_map.items():
-        if key in kwargs:  # Check if the key exists in kwargs
-            actions.append(field.set(None if kwargs[key] == "null" else kwargs[key]))
-
-    # Update the session
-    DocumentSourceModel.update(actions=actions)
-
-    return
-
-
-@delete_decorator(
-    keys={
-        "hash_key": "document_type",
-        "range_key": "document_source",
-    },
-    model_funct=get_document_source,
-)
-def delete_document_source_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> bool:
     kwargs.get("entity").delete()
     return True
 
@@ -381,7 +230,7 @@ def _get_document_process_task(
         document_source, process_task_uuid
     )
     return {
-        "document_source": _get_document_source(
+        "document_source": _get_data_source(
             document_process_task.document_type, document_source
         ),
         "process_task_uuid": document_process_task.process_task_uuid,
@@ -397,7 +246,7 @@ def get_document_process_task_type(
     info: ResolveInfo, document_process_task: DocumentProcessTaskModel
 ) -> DocumentProcessTaskType:
     try:
-        document_source = _get_document_source(
+        document_source = _get_data_source(
             document_process_task.document_type,
             document_process_task.document_source,
         )
@@ -638,8 +487,8 @@ def insert_update_document_process_entity_handler(
             "created_at": pendulum.now("UTC"),
             "updated_at": pendulum.now("UTC"),
         }
-        if kwargs.get("log") is not None:
-            cols["log"] = kwargs["log"]
+        if kwargs.get("logs") is not None:
+            cols["logs"] = kwargs["logs"]
         if kwargs.get("status") is not None:
             cols["status"] = kwargs["status"]
         DocumentProcessEntityModel(
@@ -657,7 +506,7 @@ def insert_update_document_process_entity_handler(
     field_map = {
         "document_source": DocumentProcessEntityModel.document_source,
         "document_version": DocumentProcessEntityModel.document_version,
-        "log": DocumentProcessEntityModel.log,
+        "logs": DocumentProcessEntityModel.logs,
         "status": DocumentProcessEntityModel.status,
     }
 
@@ -710,24 +559,28 @@ def get_knowledge_graph_metadata_type(
     info: ResolveInfo, knowledge_graph_metadata: KnowledgeGraphMetadataModel
 ) -> KnowledgeGraphMetadataType:
     try:
-        document_source = _get_document_source(
+        document_source = _get_data_source(
             knowledge_graph_metadata.document_type,
             knowledge_graph_metadata.document_source,
         )
-        data_source = _get_data_source(
-            knowledge_graph_metadata.data_source_type,
-            knowledge_graph_metadata.data_source_name,
-        )
+        structured_data_views = [
+            {
+                "data_source": _get_data_source(
+                    structured_data_view["data_source_type"],
+                    structured_data_view["data_source_name"],
+                ),
+                "data_view_name": structured_data_view["data_view_name"],
+            }
+            for structured_data_view in knowledge_graph_metadata.structured_data_views
+        ]
     except Exception as e:
         log = traceback.format_exc()
         info.context.get("logger").exception(log)
         raise e
     knowledge_graph_metadata = knowledge_graph_metadata.__dict__["attribute_values"]
     knowledge_graph_metadata["document_source"] = document_source
-    knowledge_graph_metadata["data_source"] = data_source
+    knowledge_graph_metadata["structured_data_views"] = structured_data_views
     knowledge_graph_metadata.pop("document_type")
-    knowledge_graph_metadata.pop("data_source_type")
-    knowledge_graph_metadata.pop("data_source_name")
     return KnowledgeGraphMetadataType(
         **Utility.json_loads(Utility.json_dumps(knowledge_graph_metadata))
     )
@@ -808,13 +661,12 @@ def insert_update_knowledge_graph_metadata_handler(
     if kwargs.get("entity") is None:
         cols = {
             "document_type": kwargs["document_type"],
-            "data_source_name": kwargs["data_source_name"],
-            "data_source_type": kwargs["data_source_type"],
-            "data_view_name": kwargs["data_view_name"],
             "updated_by": kwargs["updated_by"],
             "created_at": pendulum.now("UTC"),
             "updated_at": pendulum.now("UTC"),
         }
+        if kwargs.get("structured_data_views") is not None:
+            cols["structured_data_views"] = kwargs["structured_data_views"]
         if kwargs.get("structured_fields") is not None:
             cols["structured_fields"] = kwargs["structured_fields"]
         if kwargs.get("unstructured_attributes") is not None:
@@ -838,10 +690,7 @@ def insert_update_knowledge_graph_metadata_handler(
 
     # Map of kwargs keys to KnowledgeGraphMetadataModel attributes
     field_map = {
-        "document_type": KnowledgeGraphMetadataModel.document_type,
-        "data_source_name": KnowledgeGraphMetadataModel.data_source_name,
-        "data_source_type": KnowledgeGraphMetadataModel.data_source_type,
-        "data_view_name": KnowledgeGraphMetadataModel.data_view_name,
+        "structured_data_views": KnowledgeGraphMetadataModel.structured_data_views,
         "structured_fields": KnowledgeGraphMetadataModel.structured_fields,
         "unstructured_attributes": KnowledgeGraphMetadataModel.unstructured_attributes,
         "linkage_rules": KnowledgeGraphMetadataModel.linkage_rules,

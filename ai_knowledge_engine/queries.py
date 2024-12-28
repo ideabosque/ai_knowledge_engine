@@ -17,8 +17,6 @@ from .handlers import (
     resolve_document_process_entity_list_handler,
     resolve_document_process_task_handler,
     resolve_document_process_task_list_handler,
-    resolve_document_source_handler,
-    resolve_document_source_list_handler,
     resolve_knowledge_graph_metadata_handler,
     resolve_knowledge_graph_metadata_list_handler,
 )
@@ -30,8 +28,6 @@ from .types import (
     DocumentProcessEntityType,
     DocumentProcessTaskListType,
     DocumentProcessTaskType,
-    DocumentSourceListType,
-    DocumentSourceType,
     DocumentType,
     KnowledgeGraphMetadataListType,
     KnowledgeGraphMetadataType,
@@ -46,18 +42,6 @@ def resolve_document_list(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> DocumentListType:
     return resolve_document_list_handler(info, **kwargs)
-
-
-def resolve_document_source(
-    info: ResolveInfo, **kwargs: Dict[str, Any]
-) -> DocumentSourceType:
-    return resolve_document_source_handler(info, **kwargs)
-
-
-def resolve_document_source_list(
-    info: ResolveInfo, **kwargs: Dict[str, Any]
-) -> DocumentSourceListType:
-    return resolve_document_source_list_handler(info, **kwargs)
 
 
 def resolve_document_process_task(

@@ -29,19 +29,6 @@ class DocumentType(ObjectType):
     document_content = String()
     title_embedding = List(Float)
     content_embedding = List(Float)
-    log = String()
-    status = String()
-    updated_by = String()
-    updated_at = DateTime()
-    created_at = DateTime()
-
-
-class DocumentSourceType(ObjectType):
-    document_type = String()
-    document_source = String()
-    module_name = String()
-    class_name = String()
-    configuration = JSON()
     updated_by = String()
     updated_at = DateTime()
     created_at = DateTime()
@@ -62,7 +49,7 @@ class DocumentProcessEntityType(ObjectType):
     document_entity_uuid = String()
     document_external_id = String()
     document_version = String()
-    log = String()
+    logs = List(JSON)
     status = String()
     updated_by = String()
     updated_at = DateTime()
@@ -72,8 +59,7 @@ class DocumentProcessEntityType(ObjectType):
 class KnowledgeGraphMetadataType(ObjectType):
     document_source = JSON()
     metadata_version_uuid = String()
-    data_source = JSON()
-    data_view_name = String()
+    structured_data_views = List(JSON)
     structured_fields = List(JSON)
     unstructured_attributes = List(JSON)
     linkage_rules = List(JSON)
@@ -97,10 +83,6 @@ class DataSourceType(ObjectType):
 
 class DocumentListType(ListObjectType):
     document_list = List(DocumentType)
-
-
-class DocumentSourceListType(ListObjectType):
-    document_source_list = List(DocumentSourceType)
 
 
 class DocumentProcessTaskListType(ListObjectType):
