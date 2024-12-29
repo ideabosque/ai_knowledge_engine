@@ -19,6 +19,8 @@ from .handlers import (
     resolve_document_process_task_list_handler,
     resolve_knowledge_graph_metadata_handler,
     resolve_knowledge_graph_metadata_list_handler,
+    resolve_request_handler,
+    resolve_request_list_handler,
 )
 from .types import (
     DataSourceListType,
@@ -31,6 +33,8 @@ from .types import (
     DocumentType,
     KnowledgeGraphMetadataListType,
     KnowledgeGraphMetadataType,
+    RequestListType,
+    RequestType,
 )
 
 
@@ -88,3 +92,13 @@ def resolve_knowledge_graph_metadata_list(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> KnowledgeGraphMetadataListType:
     return resolve_knowledge_graph_metadata_list_handler(info, **kwargs)
+
+
+def resolve_request(info: ResolveInfo, **kwargs: Dict[str, Any]) -> RequestType:
+    return resolve_request_handler(info, **kwargs)
+
+
+def resolve_request_list(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> RequestListType:
+    return resolve_request_list_handler(info, **kwargs)

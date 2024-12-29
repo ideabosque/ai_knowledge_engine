@@ -26,6 +26,7 @@ from .models import (
     DocumentProcessEntityModel,
     DocumentProcessTaskModel,
     KnowledgeGraphMetadataModel,
+    RequestModel,
 )
 from .types import (
     DataSourceListType,
@@ -38,6 +39,8 @@ from .types import (
     DocumentType,
     KnowledgeGraphMetadataListType,
     KnowledgeGraphMetadataType,
+    RequestListType,
+    RequestType,
 )
 
 
@@ -862,5 +865,134 @@ def insert_update_data_source_handler(
     model_funct=get_data_source,
 )
 def delete_data_source_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> bool:
+    kwargs.get("entity").delete()
+    return True
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+    reraise=True,
+)
+def get_request(data_source_name: str, request_uuid: str) -> RequestModel:
+    return RequestModel.get(data_source_name, request_uuid)
+
+
+def get_request_count(data_source_name: str, request_uuid: str) -> int:
+    return RequestModel.count(
+        data_source_name, RequestModel.request_uuid == request_uuid
+    )
+
+
+def get_request_type(info: ResolveInfo, request: RequestModel) -> RequestType:
+    request = request.__dict__["attribute_values"]
+    return RequestType(**Utility.json_loads(Utility.json_dumps(request)))
+
+
+def resolve_request_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> RequestType:
+    return get_request_type(
+        info,
+        get_request(kwargs.get("data_source_name"), kwargs.get("request_uuid")),
+    )
+
+
+@monitor_decorator
+@resolve_list_decorator(
+    attributes_to_get=["data_source_name", "request_uuid"],
+    list_type_class=RequestListType,
+    type_funct=get_request_type,
+)
+def resolve_request_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
+    data_source_name = kwargs.get("data_source_name")
+    data_source_types = kwargs.get("data_source_types")
+    user_inquiry = kwargs.get("user_inquiry")
+    generated_query = kwargs.get("generated_query")
+    args = []
+    inquiry_funct = RequestModel.scan
+    count_funct = RequestModel.count
+    if data_source_name:
+        args = [data_source_name, None]
+        inquiry_funct = RequestModel.query
+
+    the_filters = None  # We can add filters for the query.
+    if data_source_types:
+        the_filters &= RequestModel.data_source_type.is_in(*data_source_types)
+    if user_inquiry:
+        the_filters &= RequestModel.user_inquiry.contains(user_inquiry)
+    if generated_query:
+        the_filters &= RequestModel.generated_query.contains(generated_query)
+    if the_filters is not None:
+        args.append(the_filters)
+
+    return inquiry_funct, count_funct, args
+
+
+@insert_update_decorator(
+    keys={
+        "hash_key": "data_source_name",
+        "range_key": "request_uuid",
+    },
+    range_key_required=True,
+    model_funct=get_request,
+    count_funct=get_request_count,
+    type_funct=get_request_type,
+    # data_attributes_except_for_data_diff=data_attributes_except_for_data_diff,
+    # activity_history_funct=None,
+)
+def insert_update_request_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> None:
+    data_source_name = kwargs.get("data_source_name")
+    request_uuid = kwargs.get("request_uuid")
+    if kwargs.get("entity") is None:
+        cols = {
+            "data_source_type": kwargs["data_source_type"],
+            "user_inquiry": kwargs["user_inquiry"],
+            "updated_by": kwargs["updated_by"],
+            "created_at": pendulum.now("UTC"),
+            "updated_at": pendulum.now("UTC"),
+        }
+        if kwargs.get("generated_query"):
+            cols["generated_query"] = kwargs["generated_query"]
+        if kwargs.get("result"):
+            cols["result"] = kwargs["result"]
+        if kwargs.get("request_note"):
+            cols["request_note"] = kwargs["request_note"]
+        RequestModel(
+            data_source_name,
+            request_uuid,
+            **cols,
+        ).save()
+        return
+
+    request = kwargs.get("entity")
+    actions = [
+        RequestModel.updated_by.set(kwargs["updated_by"]),
+        RequestModel.updated_at.set(pendulum.now("UTC")),
+    ]
+
+    # Map of kwargs keys to RequestModel attributes
+    field_map = {
+        "generated_query": RequestModel.generated_query,
+        "result": RequestModel.result,
+        "request_note": RequestModel.request_note,
+    }
+
+    # Add actions dynamically based on the presence of keys in kwargs
+    for key, field in field_map.items():
+        if key in kwargs:  # Check if the key exists in kwargs
+            actions.append(field.set(None if kwargs[key] == "null" else kwargs[key]))
+
+    # Update the request
+    request.update(actions=actions)
+    return
+
+
+@delete_decorator(
+    keys={
+        "hash_key": "data_source_name",
+        "range_key": "request_uuid",
+    },
+    model_funct=get_request,
+)
+def delete_request_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> bool:
     kwargs.get("entity").delete()
     return True

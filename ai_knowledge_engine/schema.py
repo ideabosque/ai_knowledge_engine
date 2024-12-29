@@ -24,11 +24,13 @@ from .mutations import (
     DeleteDocumentProcessEntity,
     DeleteDocumentProcessTask,
     DeleteKnowledgeGraphMetadata,
+    DeleteRequest,
     InsertUpdateDataSource,
     InsertUpdateDocument,
     InsertUpdateDocumentProcessEntity,
     InsertUpdateDocumentProcessTask,
     InsertUpdateKnowledgeGraphMetadata,
+    InsertUpdateRequest,
 )
 from .queries import (
     resolve_data_source,
@@ -41,6 +43,8 @@ from .queries import (
     resolve_document_process_task_list,
     resolve_knowledge_graph_metadata,
     resolve_knowledge_graph_metadata_list,
+    resolve_request,
+    resolve_request_list,
 )
 from .types import (
     DataSourceListType,
@@ -53,6 +57,8 @@ from .types import (
     DocumentType,
     KnowledgeGraphMetadataListType,
     KnowledgeGraphMetadataType,
+    RequestListType,
+    RequestType,
 )
 
 
@@ -68,6 +74,8 @@ def type_class():
         KnowledgeGraphMetadataType,
         DocumentProcessEntityType,
         DocumentProcessEntityListType,
+        RequestType,
+        RequestListType,
     ]
 
 
@@ -156,6 +164,22 @@ class Query(ObjectType):
         class_name=String(required=False),
     )
 
+    request = Field(
+        RequestType,
+        data_source_name=String(required=True),
+        request_uuid=String(required=True),
+    )
+
+    request_list = Field(
+        RequestListType,
+        page_number=Int(required=False),
+        limit=Int(required=False),
+        data_source_name=String(required=False),
+        data_source_types=List(String, required=False),
+        user_inquiry=String(required=False),
+        generated_query=String(required=False),
+    )
+
     def resolve_ping(self, info: ResolveInfo) -> str:
         return f"Hello at {time.strftime('%X')}!!"
 
@@ -203,6 +227,12 @@ class Query(ObjectType):
     ) -> Any:
         return resolve_data_source_list(info, **kwargs)
 
+    def resolve_request(self, info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
+        return resolve_request(info, **kwargs)
+
+    def resolve_request_list(self, info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
+        return resolve_request_list(info, **kwargs)
+
 
 class Mutations(ObjectType):
     insert_update_document = InsertUpdateDocument.Field()
@@ -215,3 +245,5 @@ class Mutations(ObjectType):
     delete_knowledge_graph_metadata = DeleteKnowledgeGraphMetadata.Field()
     insert_update_data_source = InsertUpdateDataSource.Field()
     delete_data_source = DeleteDataSource.Field()
+    insert_update_request = InsertUpdateRequest.Field()
+    delete_request = DeleteRequest.Field()

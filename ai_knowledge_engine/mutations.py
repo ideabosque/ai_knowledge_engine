@@ -17,11 +17,13 @@ from .handlers import (
     delete_document_process_entity_handler,
     delete_document_process_task_handler,
     delete_knowledge_graph_metadata_handler,
+    delete_request_handler,
     insert_update_data_source_handler,
     insert_update_document_handler,
     insert_update_document_process_entity_handler,
     insert_update_document_process_task_handler,
     insert_update_knowledge_graph_metadata_handler,
+    insert_update_request_handler,
 )
 from .types import (
     DataSourceType,
@@ -29,6 +31,7 @@ from .types import (
     DocumentProcessTaskType,
     DocumentType,
     KnowledgeGraphMetadataType,
+    RequestType,
 )
 
 
@@ -280,3 +283,47 @@ class DeleteDataSource(Mutation):
             raise e
 
         return DeleteDataSource(ok=ok)
+
+
+class InsertUpdateRequest(Mutation):
+    request = Field(RequestType)
+
+    class Arguments:
+        data_source_name = String(required=True)
+        request_uuid = String(required=False)
+        data_source_type = String(required=False)
+        user_inquiry = String(required=False)
+        generated_query = String(required=False)
+        result = List(JSON, required=False)
+        request_note = String(required=False)
+        updated_by = String(required=True)
+
+    @staticmethod
+    def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "InsertUpdateRequest":
+        try:
+            request = insert_update_request_handler(info, **kwargs)
+        except Exception as e:
+            log = traceback.format_exc()
+            info.context.get("logger").error(log)
+            raise e
+
+        return InsertUpdateRequest(request=request)
+
+
+class DeleteRequest(Mutation):
+    ok = Boolean()
+
+    class Arguments:
+        data_source_name = String(required=True)
+        request_uuid = String(required=True)
+
+    @staticmethod
+    def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "DeleteRequest":
+        try:
+            ok = delete_request_handler(info, **kwargs)
+        except Exception as e:
+            log = traceback.format_exc()
+            info.context.get("logger").error(log)
+            raise e
+
+        return DeleteRequest(ok=ok)

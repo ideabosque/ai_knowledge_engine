@@ -81,6 +81,19 @@ class DataSourceType(ObjectType):
     created_at = DateTime()
 
 
+class RequestType(ObjectType):
+    data_source_name = String()
+    request_uuid = String()
+    data_source_type = String()
+    user_inquiry = String()
+    generated_query = String()
+    result = List(JSON)
+    request_note = String()
+    created_at = DateTime()
+    updated_by = String()
+    updated_at = DateTime()
+
+
 class DocumentListType(ListObjectType):
     document_list = List(DocumentType)
 
@@ -99,3 +112,7 @@ class KnowledgeGraphMetadataListType(ListObjectType):
 
 class DataSourceListType(ListObjectType):
     data_source_list = List(DataSourceType)
+
+
+class RequestListType(ListObjectType):
+    request_list = List(RequestType)
