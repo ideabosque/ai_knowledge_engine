@@ -87,7 +87,7 @@ class RequestType(ObjectType):
     data_source_type = String()
     user_inquiry = String()
     generated_query = String()
-    result = List(JSON)
+    results = List(JSON)
     request_note = String()
     created_at = DateTime()
     updated_by = String()

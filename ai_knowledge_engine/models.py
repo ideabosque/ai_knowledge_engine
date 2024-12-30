@@ -136,7 +136,7 @@ class RequestModel(BaseModel):
     data_source_type = UnicodeAttribute()
     user_inquiry = UnicodeAttribute()
     generated_query = UnicodeAttribute(null=True)
-    result = ListAttribute(of=MapAttribute, default=[])
+    results = ListAttribute(of=MapAttribute, default=[])
     request_note = UnicodeAttribute(null=True)
     created_at = UTCDateTimeAttribute()
     updated_by = UnicodeAttribute()

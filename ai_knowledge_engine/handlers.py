@@ -952,8 +952,8 @@ def insert_update_request_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
         }
         if kwargs.get("generated_query"):
             cols["generated_query"] = kwargs["generated_query"]
-        if kwargs.get("result"):
-            cols["result"] = kwargs["result"]
+        if kwargs.get("results"):
+            cols["results"] = kwargs["results"]
         if kwargs.get("request_note"):
             cols["request_note"] = kwargs["request_note"]
         RequestModel(
@@ -972,7 +972,7 @@ def insert_update_request_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
     # Map of kwargs keys to RequestModel attributes
     field_map = {
         "generated_query": RequestModel.generated_query,
-        "result": RequestModel.result,
+        "results": RequestModel.results,
         "request_note": RequestModel.request_note,
     }
 
