@@ -19,12 +19,17 @@ setting = {
     "region_name": os.getenv("region_name"),
     "aws_access_key_id": os.getenv("aws_access_key_id"),
     "aws_secret_access_key": os.getenv("aws_secret_access_key"),
+    "openai_api_key": os.getenv("openai_api_key"),
+    "openai_model": os.getenv("openai_model"),
     "functs_on_local": {
         "ai_knowledge_graphql": {
             "module_name": "ai_knowledge_engine",
             "class_name": "AIKnowledgeEngine",
         },
     },
+    "adaptor_bucket_name": os.getenv("adaptor_bucket_name"),
+    "adaptor_zip_path": os.getenv("adaptor_zip_path"),
+    "adaptor_extract_path": os.getenv("adaptor_extract_path"),
     "endpoint_id": os.getenv("endpoint_id"),
     "test_mode": os.getenv("test_mode"),
 }
@@ -32,6 +37,8 @@ setting = {
 sys.path.insert(0, "C:/Users/bibo7/gitrepo/silvaengine/ai_knowledge_engine")
 sys.path.insert(1, "C:/Users/bibo7/gitrepo/silvaengine/silvaengine_dynamodb_base")
 sys.path.insert(2, "C:/Users/bibo7/gitrepo/silvaengine/silvaengine_utility")
+sys.path.insert(3, "C:/Users/bibo7/gitrepo/silvaengine/neo4j_graph_connector")
+sys.path.insert(4, "C:/Users/bibo7/gitrepo/silvaengine/redis_stack_connector")
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger()
@@ -398,7 +405,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_insert_update_request(self):
         query = Utility.generate_graphql_operation(
             "insertUpdateRequest", "Mutation", self.schema
@@ -447,7 +454,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_request_list(self):
         query = Utility.generate_graphql_operation("requestList", "Query", self.schema)
         logger.info(f"Query: {query}")
@@ -455,6 +462,27 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             "query": query,
             "variables": {
                 "dataSourceName": "XXXXXXXXXXXXXXXXXXX",
+            },
+        }
+        response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
+        logger.info(response)
+
+    # @unittest.skip("demonstrating skipping")
+    def test_graphql_data_view(self):
+        query = Utility.generate_graphql_operation("dataView", "Query", self.schema)
+        logger.info(f"Query: {query}")
+        payload = {
+            "query": query,
+            "variables": {
+                "dataSourceType": "XXXXXXXXXXXXXXXXXXX",
+                "dataSourceName": "XXXXXXXXXXXXXXXXXXX",
+                "dataViewName": "inventory_balance",
+                "parameters": {
+                    "filters": [
+                        {"attribute": "location", "operator": "=", "value": "37"},
+                        {"attribute": "binnumber", "operator": "=", "value": "5120"},
+                    ]
+                },
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)

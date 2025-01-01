@@ -18,6 +18,8 @@ from graphene import (
     String,
 )
 
+from silvaengine_utility import JSON
+
 from .mutations import (
     DeleteDataSource,
     DeleteDocument,
@@ -35,6 +37,7 @@ from .mutations import (
 from .queries import (
     resolve_data_source,
     resolve_data_source_list,
+    resolve_data_view,
     resolve_document,
     resolve_document_list,
     resolve_document_process_entity,
@@ -43,12 +46,14 @@ from .queries import (
     resolve_document_process_task_list,
     resolve_knowledge_graph_metadata,
     resolve_knowledge_graph_metadata_list,
+    resolve_knowledge_rag,
     resolve_request,
     resolve_request_list,
 )
 from .types import (
     DataSourceListType,
     DataSourceType,
+    DataViewType,
     DocumentListType,
     DocumentProcessEntityListType,
     DocumentProcessEntityType,
@@ -57,6 +62,7 @@ from .types import (
     DocumentType,
     KnowledgeGraphMetadataListType,
     KnowledgeGraphMetadataType,
+    KnowledgeRagType,
     RequestListType,
     RequestType,
 )
@@ -76,6 +82,8 @@ def type_class():
         DocumentProcessEntityListType,
         RequestType,
         RequestListType,
+        KnowledgeRagType,
+        DataViewType,
     ]
 
 
@@ -180,58 +188,100 @@ class Query(ObjectType):
         generated_query=String(required=False),
     )
 
+    knowledge_rag = Field(
+        KnowledgeRagType,
+        user_query=String(required=True),
+        index_name=String(required=False),
+        document_source=String(required=False),
+        vector_field=String(required=False),
+        return_fields=List(String, required=False),
+        hybrid_fields=List(String, required=False),
+        k=Int(required=False),
+        offset=Int(required=False),
+        limit=Int(required=False),
+        is_similarity_search=Boolean(required=False),
+    )
+
+    data_view = Field(
+        DataViewType,
+        data_source_type=String(required=True),
+        data_source_name=String(required=True),
+        data_view_name=String(required=True),
+        parameters=JSON(required=False),
+    )
+
     def resolve_ping(self, info: ResolveInfo) -> str:
         return f"Hello at {time.strftime('%X')}!!"
 
-    def resolve_document(self, info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
+    def resolve_document(
+        self, info: ResolveInfo, **kwargs: Dict[str, Any]
+    ) -> DocumentType:
         return resolve_document(info, **kwargs)
 
-    def resolve_document_list(self, info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
+    def resolve_document_list(
+        self, info: ResolveInfo, **kwargs: Dict[str, Any]
+    ) -> DocumentListType:
         return resolve_document_list(info, **kwargs)
 
     def resolve_document_process_task(
         self, info: ResolveInfo, **kwargs: Dict[str, Any]
-    ) -> Any:
+    ) -> DocumentProcessTaskType:
         return resolve_document_process_task(info, **kwargs)
 
     def resolve_document_process_task_list(
         self, info: ResolveInfo, **kwargs: Dict[str, Any]
-    ) -> Any:
+    ) -> DocumentProcessTaskListType:
         return resolve_document_process_task_list(info, **kwargs)
 
     def resolve_document_process_entity(
         self, info: ResolveInfo, **kwargs: Dict[str, Any]
-    ) -> Any:
+    ) -> DocumentProcessEntityType:
         return resolve_document_process_entity(info, **kwargs)
 
     def resolve_document_process_entity_list(
         self, info: ResolveInfo, **kwargs: Dict[str, Any]
-    ) -> Any:
+    ) -> DocumentProcessEntityListType:
         return resolve_document_process_entity_list(info, **kwargs)
 
     def resolve_knowledge_graph_metadata(
         self, info: ResolveInfo, **kwargs: Dict[str, Any]
-    ) -> Any:
+    ) -> KnowledgeGraphMetadataType:
         return resolve_knowledge_graph_metadata(info, **kwargs)
 
     def resolve_knowledge_graph_metadata_list(
         self, info: ResolveInfo, **kwargs: Dict[str, Any]
-    ) -> Any:
+    ) -> KnowledgeGraphMetadataListType:
         return resolve_knowledge_graph_metadata_list(info, **kwargs)
 
-    def resolve_data_source(self, info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
+    def resolve_data_source(
+        self, info: ResolveInfo, **kwargs: Dict[str, Any]
+    ) -> DataSourceType:
         return resolve_data_source(info, **kwargs)
 
     def resolve_data_source_list(
         self, info: ResolveInfo, **kwargs: Dict[str, Any]
-    ) -> Any:
+    ) -> DataSourceListType:
         return resolve_data_source_list(info, **kwargs)
 
-    def resolve_request(self, info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
+    def resolve_request(
+        self, info: ResolveInfo, **kwargs: Dict[str, Any]
+    ) -> RequestType:
         return resolve_request(info, **kwargs)
 
-    def resolve_request_list(self, info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
+    def resolve_request_list(
+        self, info: ResolveInfo, **kwargs: Dict[str, Any]
+    ) -> RequestListType:
         return resolve_request_list(info, **kwargs)
+
+    def resolve_knowledge_rag(
+        self, info: ResolveInfo, **kwargs: Dict[str, Any]
+    ) -> KnowledgeRagType:
+        return resolve_knowledge_rag(info, **kwargs)
+
+    def resolve_data_view(
+        self, info: ResolveInfo, **kwargs: Dict[str, Any]
+    ) -> DataViewType:
+        return resolve_data_view(info, **kwargs)
 
 
 class Mutations(ObjectType):

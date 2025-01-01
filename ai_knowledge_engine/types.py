@@ -63,6 +63,7 @@ class KnowledgeGraphMetadataType(ObjectType):
     structured_fields = List(JSON)
     unstructured_attributes = List(JSON)
     linkage_rules = List(JSON)
+    merge_rule = JSON()
     status = Boolean()
     updated_by = String()
     updated_at = DateTime()
@@ -85,13 +86,26 @@ class RequestType(ObjectType):
     data_source_name = String()
     request_uuid = String()
     data_source_type = String()
-    user_inquiry = String()
+    user_query = String()
     generated_query = String()
     results = List(JSON)
     request_note = String()
     created_at = DateTime()
     updated_by = String()
     updated_at = DateTime()
+
+
+class KnowledgeRagType(ObjectType):
+    results = List(JSON)
+    total = Int()
+
+
+class DataViewType(ObjectType):
+    results = List(JSON)
+    count = Int()
+    has_more = Boolean()
+    offset = Int()
+    total = Int()
 
 
 class DocumentListType(ListObjectType):

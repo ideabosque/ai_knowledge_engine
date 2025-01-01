@@ -5,13 +5,21 @@ from __future__ import print_function
 __author__ = "bibow"
 
 import logging
+import os
+import sys
+import threading
 import traceback
-from typing import Any, Dict
+import zipfile
+from typing import Any, Callable, Dict, List, Optional
 
+import boto3
 import pendulum
 from graphene import ResolveInfo
+from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from neo4j_graph_connector import Neo4jConnector
+from redis_stack_connector import RedisStackConnector
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -31,6 +39,7 @@ from .models import (
 from .types import (
     DataSourceListType,
     DataSourceType,
+    DataViewType,
     DocumentListType,
     DocumentProcessEntityListType,
     DocumentProcessEntityType,
@@ -39,18 +48,116 @@ from .types import (
     DocumentType,
     KnowledgeGraphMetadataListType,
     KnowledgeGraphMetadataType,
+    KnowledgeRagType,
     RequestListType,
     RequestType,
 )
 
+openai_client = None
+openai_model = None
+neo4j_connector = None
+redis_stack_connector = None
+neo4j_database = None
+graph_schema = None
+adaptor_bucket_name = None
+adaptor_zip_path = None
+adaptor_extract_path = None
+aws_s3 = None
+
 
 def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
     try:
-        pass
+        global aws_s3
+        global openai_client, openai_model
+        global neo4j_connector, neo4j_database, graph_schema
+        global redis_stack_connector
+        global adaptor_bucket_name, adaptor_zip_path, adaptor_extract_path
+
+        _initialize_aws_services(setting)
+        _initialize_openai_client(setting)
+        _initialize_neo4j(logger, setting)
+        _initialize_redis_stack(logger, setting)
+        _setup_function_paths(setting)
+
     except Exception as e:
         log = traceback.format_exc()
         logger.error(log)
         raise e
+
+
+def _initialize_aws_services(setting: Dict[str, Any]) -> None:
+    global aws_s3
+    if all(
+        setting.get(k)
+        for k in ["region_name", "aws_access_key_id", "aws_secret_access_key"]
+    ):
+        aws_credentials = {
+            "region_name": setting["region_name"],
+            "aws_access_key_id": setting["aws_access_key_id"],
+            "aws_secret_access_key": setting["aws_secret_access_key"],
+        }
+    else:
+        aws_credentials = {}
+
+    aws_s3 = boto3.client("s3", **aws_credentials)
+
+
+def _initialize_openai_client(setting: Dict[str, Any]) -> None:
+    global openai_client, openai_model
+
+    if "openai_api_key" in setting:
+        openai_client = OpenAI(api_key=setting["openai_api_key"])
+    if "openai_model" in setting:
+        openai_model = setting["openai_model"]
+
+
+def _initialize_neo4j(logger: logging.Logger, setting: Dict[str, Any]) -> None:
+    global neo4j_connector, neo4j_database, graph_schema
+    if (
+        "neo4j_uri" in setting
+        and "neo4j_username" in setting
+        and "neo4j_password" in setting
+    ):
+        neo4j_connector = Neo4jConnector(
+            logger,
+            **{
+                "neo4j_uri": setting["neo4j_uri"],
+                "neo4j_username": setting["neo4j_username"],
+                "neo4j_password": setting["neo4j_password"],
+            },
+        )
+    if "neo4j_database" in setting:
+        neo4j_database = setting["neo4j_database"]
+        graph_schema = neo4j_connector.get_graph_schema(database=neo4j_database)
+
+
+def _initialize_redis_stack(logger: logging.Logger, setting: Dict[str, Any]) -> None:
+    global redis_stack_connector
+    if (
+        "REDIS_HOST" in setting
+        and "REDIS_PORT" in setting
+        and "REDIS_PASSWORD" in setting
+        and "EMBEDDING_MODEL" in setting
+    ):
+        redis_stack_connector = RedisStackConnector(
+            logger,
+            **{
+                "openai_api_key": setting["openai_api_key"],
+                "host": setting["REDIS_HOST"],
+                "port": setting["REDIS_PORT"],
+                "password": setting["REDIS_PASSWORD"],
+                "embedding_model": setting["EMBEDDING_MODEL"],
+            },
+        )
+
+
+def _setup_function_paths(setting: Dict[str, Any]) -> None:
+    global adaptor_bucket_name, adaptor_zip_path, adaptor_extract_path
+    adaptor_bucket_name = setting.get("adaptor_bucket_name")
+    adaptor_zip_path = setting.get("adaptor_zip_path", "/tmp/adaptor_zips")
+    adaptor_extract_path = setting.get("adaptor_extract_path", "/tmp/adaptors")
+    os.makedirs(adaptor_zip_path, exist_ok=True)
+    os.makedirs(adaptor_extract_path, exist_ok=True)
 
 
 @retry(
@@ -676,6 +783,8 @@ def insert_update_knowledge_graph_metadata_handler(
             cols["unstructured_attributes"] = kwargs["unstructured_attributes"]
         if kwargs.get("linkage_rules") is not None:
             cols["linkage_rules"] = kwargs["linkage_rules"]
+        if kwargs.get("merge_rule") is not None:
+            cols["merge_rule"] = kwargs["merge_rule"]
         if kwargs.get("status") is not None:
             cols["status"] = kwargs["status"]
         KnowledgeGraphMetadataModel(
@@ -697,6 +806,7 @@ def insert_update_knowledge_graph_metadata_handler(
         "structured_fields": KnowledgeGraphMetadataModel.structured_fields,
         "unstructured_attributes": KnowledgeGraphMetadataModel.unstructured_attributes,
         "linkage_rules": KnowledgeGraphMetadataModel.linkage_rules,
+        "merge_rule": KnowledgeGraphMetadataModel.merge_rule,
         "status": KnowledgeGraphMetadataModel.status,
     }
 
@@ -905,7 +1015,7 @@ def resolve_request_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> Requ
 def resolve_request_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
     data_source_name = kwargs.get("data_source_name")
     data_source_types = kwargs.get("data_source_types")
-    user_inquiry = kwargs.get("user_inquiry")
+    user_query = kwargs.get("user_query")
     generated_query = kwargs.get("generated_query")
     args = []
     inquiry_funct = RequestModel.scan
@@ -917,8 +1027,8 @@ def resolve_request_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) ->
     the_filters = None  # We can add filters for the query.
     if data_source_types:
         the_filters &= RequestModel.data_source_type.is_in(*data_source_types)
-    if user_inquiry:
-        the_filters &= RequestModel.user_inquiry.contains(user_inquiry)
+    if user_query:
+        the_filters &= RequestModel.user_query.contains(user_query)
     if generated_query:
         the_filters &= RequestModel.generated_query.contains(generated_query)
     if the_filters is not None:
@@ -945,7 +1055,7 @@ def insert_update_request_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
     if kwargs.get("entity") is None:
         cols = {
             "data_source_type": kwargs["data_source_type"],
-            "user_inquiry": kwargs["user_inquiry"],
+            "user_query": kwargs["user_query"],
             "updated_by": kwargs["updated_by"],
             "created_at": pendulum.now("UTC"),
             "updated_at": pendulum.now("UTC"),
@@ -996,3 +1106,334 @@ def insert_update_request_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
 def delete_request_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> bool:
     kwargs.get("entity").delete()
     return True
+
+
+# Merge results with vector results and graph results by the merge rule.
+def _merge_results(vector_results, graph_results, merge_rule):
+    merge_key = merge_rule["merge_key"]
+    vector_attributes = merge_rule["attributes_to_include"]["vector"]
+    graph_attributes = merge_rule["attributes_to_include"]["graph"]
+
+    # Build a lookup for graph results
+    graph_lookup = {item[merge_key]: item for item in graph_results}
+
+    # Merge results
+    merged_results = []
+    for vector_item in vector_results:
+        transaction_id = vector_item[merge_key]
+        graph_item = graph_lookup.get(transaction_id, {})
+
+        # Initialize merged item with the merge key
+        merged_item = {merge_key: transaction_id}
+
+        # Include specified attributes from vector results
+        merged_item.update(
+            {
+                attr: vector_item.get(attr)
+                for attr in vector_attributes
+                if attr in vector_item
+            }
+        )
+
+        # Include specified attributes from graph results
+        merged_item.update(
+            {
+                attr: graph_item.get(attr)
+                for attr in graph_attributes
+                if attr in graph_item
+            }
+        )
+
+        merged_results.append(merged_item)
+
+    return merged_results
+
+
+# Use AI to generate Cypher query dynamically based on schema
+def _generate_cypher_query(user_query: str, graph_schema: str) -> str:
+    openai_system_content = """
+    You are an AI assistant proficient in generating Cypher queries tailored to a graph schema, ensuring clarity, accuracy, and adherence to Neo4j standards.
+
+    1. Understand the User's Inquiry
+
+    - Analyze Input: Examine the user's request to identify the core intent and relevant entities or relationships described within the graph schema.
+    - Clarify Ambiguity: If the inquiry lacks clarity or sufficient detail, ask for additional information or examples to ensure accurate query generation.
+    - Preserve Quoted Terms: Any terms or phrases enclosed in double quotes (e.g., `"High"`) must be included in the Cypher query exactly as provided, maintaining original capitalization and formatting (e.g., `"High"` must not become `"high"`). This rule is non-negotiable and must be followed during query creation.
+
+    2. Generate a Graph Query
+
+    - Build with Precision: Construct a Cypher query aligned with the user's input and the graph schema's design.
+    - Ensure Compliance: Validate that the query adheres to Neo4j's Cypher syntax and accurately retrieves the requested data.
+    - Integrate User-Specific Terms: Embed all double-quoted terms from the user's inquiry as-is, preserving their exact wording and format.
+
+    3. Error Handling Guidelines
+
+    - Schema Retrieval Issues: If the graph schema is unavailable, respond with a message such as:  
+    "Unable to retrieve the graph schema."
+    - Ambiguous Requests: For unclear inquiries, prompt the user with clarifying questions, such as:  
+    "Could you provide more details?"
+
+    4. Additional Notes
+
+    - Adherence to Cypher Standards: Guarantee all queries conform to Neo4j Cypher syntax for correctness and functionality.
+    - Schema Validation: Incorporate schema validation steps before generating the query to avoid errors or invalid results.
+    - Iterative Refinement: Facilitate query adjustments based on user feedback, enabling refinement and improved accuracy in meeting the user's needs.
+
+
+    This approach ensures a user-focused, reliable, and flexible framework for generating Cypher queries while maintaining the integrity of the graph schema and user-provided inputs.
+"""
+    response = openai_client.ChatCompletion.create(
+        model=openai_model,
+        messages=[
+            {
+                "role": "system",
+                "content": openai_system_content,
+            },
+            {
+                "role": "user",
+                "content": f"Generate a Cypher query for: {user_query} using schema: {graph_schema}",
+            },
+        ],
+    )
+    cypher_query = response["choices"][0]["message"]["content"]
+    if cypher_query.startswith("Unable to retrieve the graph schema."):
+        raise Exception(cypher_query)
+    if cypher_query.startswith("Could you provide more details?"):
+        raise Exception(cypher_query)
+
+    return cypher_query
+
+
+# Retrieve the knowledge graph metadata.
+def _get_enabled_knowledge_graph_metadata(
+    document_source: str,
+) -> KnowledgeGraphMetadataModel:
+    count = KnowledgeGraphMetadataModel.count(
+        document_source,
+        None,
+        filter_condition=(KnowledgeGraphMetadataModel.status == True),
+    )
+    if count == 0:
+        raise Exception("No knowledge graph metadata found")
+    results = KnowledgeGraphMetadataModel.query(
+        document_source,
+        None,
+        filter_condition=(KnowledgeGraphMetadataModel.status == True),
+    )
+    return results.next()
+
+
+# Define the updated function
+def _process_and_merge_results(
+    logger: logging.Logger, **kwargs: Dict[str, Any]
+) -> List[Dict[str, Any]]:
+    try:
+        user_query = kwargs.get("user_query")
+        index_name = kwargs.get("index_name")
+        document_source = kwargs.get("document_source")
+        vector_field = kwargs.get("vector_field", "content_vector")
+        return_fields = kwargs.get("return_fields")
+        hybrid_fields = kwargs.get("hybrid_fields", "*")
+        k = kwargs.get("k", 100)
+        offset = kwargs.get("offset", 0)
+        limit = kwargs.get("limit", 100)
+        is_similarity_search = kwargs.get("is_similarity_search", False)
+
+        graph_total = 0
+        graph_results = []
+        vector_results_total = 0
+        vector_results = []
+        exceptions = []
+
+        def query_graph():
+            nonlocal graph_total, graph_results
+            try:
+                cypher_query = _generate_cypher_query(user_query, graph_schema)
+
+                # Retrieve the total count and first batch of results
+                graph_total, initial_results = (
+                    neo4j_connector.execute_cypher_query_with_pagination(
+                        cypher_query,
+                        database=neo4j_database,
+                        limit=limit,
+                        skip=offset,
+                        get_total=True,
+                    )
+                )
+
+                graph_results.extend(initial_results)
+
+                # If similarity search is enabled and graph_total is greater than the initial results,
+                # retrieve all remaining results using a loop
+                if is_similarity_search and graph_total > len(graph_results):
+                    skip = len(graph_results)
+                    while skip < graph_total:
+                        batch_results = (
+                            neo4j_connector.execute_cypher_query_with_pagination(
+                                cypher_query,
+                                database=neo4j_database,
+                                limit=limit,
+                                skip=skip,
+                                get_total=False,
+                            )
+                        )
+                        graph_results.extend(batch_results)
+                        skip += len(batch_results)
+
+            except Exception as e:
+                logger.error(f"Graph query failed: {traceback.format_exc()}")
+                exceptions.append(e)
+
+        def query_vector():
+            nonlocal vector_results_total, vector_results
+            try:
+                vector_results_total, vector_results = (
+                    redis_stack_connector.search_redis(
+                        user_query,
+                        index_name,
+                        vector_field=vector_field,
+                        return_fields=return_fields,
+                        hybrid_fields=hybrid_fields,
+                        k=k,
+                        offset=offset,
+                        limit=limit,
+                    )
+                )
+            except Exception as e:
+                logger.error(f"Vector query failed: {traceback.format_exc()}")
+                exceptions.append(e)
+
+        # Create and start the graph query thread
+        graph_thread = threading.Thread(target=query_graph)
+        graph_thread.start()
+
+        # If similarity search is enabled, create and start the vector query thread
+        if is_similarity_search:
+            vector_thread = threading.Thread(target=query_vector)
+            vector_thread.start()
+            vector_thread.join()
+
+        # Wait for the graph query thread to complete
+        graph_thread.join()
+
+        # If any exceptions occurred in the threads, raise the first one
+        if exceptions:
+            raise exceptions[0]
+
+        if not is_similarity_search:
+            return graph_total, graph_results
+
+        # Retrieve the knowledge graph metadata
+        knowledge_graph_metadata = _get_enabled_knowledge_graph_metadata(
+            document_source
+        )
+
+        # Merge the vector results and the graph results
+        merge_results = _merge_results(
+            vector_results, graph_results, knowledge_graph_metadata.merge_rule
+        )
+
+        return vector_results_total, merge_results
+    except Exception as e:
+        log = traceback.format_exc()
+        logger.error(log)
+        raise e
+
+
+def resolve_knowledge_rag_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> KnowledgeRagType:
+    total, results = _process_and_merge_results(info.context.get("logger"), **kwargs)
+    return KnowledgeRagType(results=results, total=total)
+
+
+def module_exists(logger: logging.Logger, module_name: str) -> bool:
+    """Check if the module exists in the specified path."""
+    module_dir = os.path.join(adaptor_extract_path, module_name)
+    if os.path.exists(module_dir) and os.path.isdir(module_dir):
+        logger.info(f"Module {module_name} found in {adaptor_extract_path}.")
+        return True
+    logger.info(f"Module {module_name} not found in {adaptor_extract_path}.")
+    return False
+
+
+def download_and_extract_module(logger: logging.Logger, module_name: str) -> None:
+    """Download and extract the module from S3 if not already extracted."""
+    key = f"{module_name}.zip"
+    zip_path = f"{adaptor_zip_path}/{key}"
+
+    logger.info(f"Downloading module from S3: bucket={adaptor_bucket_name}, key={key}")
+    aws_s3.download_file(adaptor_bucket_name, key, zip_path)
+    logger.info(f"Downloaded {key} from S3 to {zip_path}")
+
+    # Extract the ZIP file
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        zip_ref.extractall(adaptor_extract_path)
+    logger.info(f"Extracted module to {adaptor_extract_path}")
+
+
+def get_data_adaptor_function(
+    logger: logging.Logger,
+    data_source_type: str,
+    data_source_name: str,
+    function_name: str,
+) -> Optional[Callable]:
+    try:
+        data_source = get_data_source(data_source_type, data_source_name)
+
+        if not module_exists(logger, data_source.module_name):
+            # Download and extract the module if it doesn't exist
+            download_and_extract_module(logger, data_source.module_name)
+
+        # Add the extracted module to sys.path
+        module_path = f"{adaptor_extract_path}/{data_source.module_name}"
+        if module_path not in sys.path:
+            sys.path.append(module_path)
+
+        data_source_class = getattr(
+            __import__(data_source.module_name), data_source.class_name
+        )
+
+        configuration = (
+            data_source.configuration.__dict__["attribute_values"]
+            if data_source.__dict__["attribute_values"].get("configuration")
+            else {}
+        )
+
+        setting = dict(configuration, **{"data_views": data_source.data_views})
+
+        return getattr(
+            data_source_class(
+                logger,
+                **Utility.json_loads(Utility.json_dumps(setting)),
+            ),
+            function_name,
+        )
+    except Exception as e:
+        log = traceback.format_exc()
+        logger.error(log)
+        raise e
+
+
+def resolve_data_view_handler(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> DataViewType:
+    data_source_type = kwargs.get("data_source_type")
+    data_source_name = kwargs.get("data_source_name")
+    data_view_name = kwargs.get("data_view_name")
+    parameters = kwargs.get("parameters", {})
+
+    try:
+        data_view_function = get_data_adaptor_function(
+            info.context.get("logger"),
+            data_source_type,
+            data_source_name,
+            "get_data_view",
+        )
+        data_view = data_view_function(data_view_name, **parameters)
+
+        return DataViewType(**data_view)
+    except Exception as e:
+        log = traceback.format_exc()
+        info.context.get("logger").error(log)
+        raise e

@@ -198,6 +198,7 @@ class InsertUpdateKnowledgeGraphMetadata(Mutation):
         structured_fields = List(JSON, required=False)
         unstructured_attributes = List(JSON, required=False)
         linkage_rules = List(JSON, required=False)
+        merge_rule = JSON(required=False)
         status = String(required=False)
         updated_by = String(required=True)
 
@@ -292,7 +293,7 @@ class InsertUpdateRequest(Mutation):
         data_source_name = String(required=True)
         request_uuid = String(required=False)
         data_source_type = String(required=False)
-        user_inquiry = String(required=False)
+        user_query = String(required=False)
         generated_query = String(required=False)
         result = List(JSON, required=False)
         request_note = String(required=False)

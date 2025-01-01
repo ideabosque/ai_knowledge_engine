@@ -11,6 +11,7 @@ from graphene import ResolveInfo
 from .handlers import (
     resolve_data_source_handler,
     resolve_data_source_list_handler,
+    resolve_data_view_handler,
     resolve_document_handler,
     resolve_document_list_handler,
     resolve_document_process_entity_handler,
@@ -19,12 +20,14 @@ from .handlers import (
     resolve_document_process_task_list_handler,
     resolve_knowledge_graph_metadata_handler,
     resolve_knowledge_graph_metadata_list_handler,
+    resolve_knowledge_rag_handler,
     resolve_request_handler,
     resolve_request_list_handler,
 )
 from .types import (
     DataSourceListType,
     DataSourceType,
+    DataViewType,
     DocumentListType,
     DocumentProcessEntityListType,
     DocumentProcessEntityType,
@@ -33,6 +36,7 @@ from .types import (
     DocumentType,
     KnowledgeGraphMetadataListType,
     KnowledgeGraphMetadataType,
+    KnowledgeRagType,
     RequestListType,
     RequestType,
 )
@@ -102,3 +106,13 @@ def resolve_request_list(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> RequestListType:
     return resolve_request_list_handler(info, **kwargs)
+
+
+def resolve_knowledge_rag(
+    info: ResolveInfo, **kwargs: Dict[str, Any]
+) -> KnowledgeRagType:
+    return resolve_knowledge_rag_handler(info, **kwargs)
+
+
+def resolve_data_view(info: ResolveInfo, **kwargs: Dict[str, Any]) -> DataViewType:
+    return resolve_data_view_handler(info, **kwargs)
