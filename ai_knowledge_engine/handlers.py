@@ -994,13 +994,13 @@ def delete_data_source_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> b
     wait=wait_exponential(multiplier=1, min=4, max=10),
     reraise=True,
 )
-def get_request(data_source_name: str, request_uuid: str) -> RequestModel:
-    return RequestModel.get(data_source_name, request_uuid)
+def get_request(document_source: str, request_uuid: str) -> RequestModel:
+    return RequestModel.get(document_source, request_uuid)
 
 
-def get_request_count(data_source_name: str, request_uuid: str) -> int:
+def get_request_count(document_source: str, request_uuid: str) -> int:
     return RequestModel.count(
-        data_source_name, RequestModel.request_uuid == request_uuid
+        document_source, RequestModel.request_uuid == request_uuid
     )
 
 
@@ -1012,35 +1012,36 @@ def get_request_type(info: ResolveInfo, request: RequestModel) -> RequestType:
 def resolve_request_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> RequestType:
     return get_request_type(
         info,
-        get_request(kwargs.get("data_source_name"), kwargs.get("request_uuid")),
+        get_request(kwargs.get("document_source"), kwargs.get("request_uuid")),
     )
 
 
 @monitor_decorator
 @resolve_list_decorator(
-    attributes_to_get=["data_source_name", "request_uuid"],
+    attributes_to_get=["document_source", "request_uuid"],
     list_type_class=RequestListType,
     type_funct=get_request_type,
 )
 def resolve_request_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
-    data_source_name = kwargs.get("data_source_name")
-    data_source_types = kwargs.get("data_source_types")
+    document_source = kwargs.get("document_source")
     user_query = kwargs.get("user_query")
     generated_query = kwargs.get("generated_query")
+    is_similarity_search = kwargs.get("is_similarity_search")
+
     args = []
     inquiry_funct = RequestModel.scan
     count_funct = RequestModel.count
-    if data_source_name:
-        args = [data_source_name, None]
+    if document_source:
+        args = [document_source, None]
         inquiry_funct = RequestModel.query
 
     the_filters = None  # We can add filters for the query.
-    if data_source_types:
-        the_filters &= RequestModel.data_source_type.is_in(*data_source_types)
     if user_query:
         the_filters &= RequestModel.user_query.contains(user_query)
     if generated_query:
         the_filters &= RequestModel.generated_query.contains(generated_query)
+    if is_similarity_search:
+        the_filters &= RequestModel.is_similarity_search == is_similarity_search
     if the_filters is not None:
         args.append(the_filters)
 
@@ -1049,7 +1050,7 @@ def resolve_request_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) ->
 
 @insert_update_decorator(
     keys={
-        "hash_key": "data_source_name",
+        "hash_key": "document_source",
         "range_key": "request_uuid",
     },
     range_key_required=True,
@@ -1060,11 +1061,10 @@ def resolve_request_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) ->
     # activity_history_funct=None,
 )
 def insert_update_request_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> None:
-    data_source_name = kwargs.get("data_source_name")
+    document_source = kwargs.get("document_source")
     request_uuid = kwargs.get("request_uuid")
     if kwargs.get("entity") is None:
         cols = {
-            "data_source_type": kwargs["data_source_type"],
             "user_query": kwargs["user_query"],
             "updated_by": kwargs["updated_by"],
             "created_at": pendulum.now("UTC"),
@@ -1072,12 +1072,14 @@ def insert_update_request_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
         }
         if kwargs.get("generated_query"):
             cols["generated_query"] = kwargs["generated_query"]
+        if kwargs.get("is_similarity_search"):
+            cols["is_similarity_search"] = kwargs["is_similarity_search"]
         if kwargs.get("results"):
             cols["results"] = kwargs["results"]
         if kwargs.get("request_note"):
             cols["request_note"] = kwargs["request_note"]
         RequestModel(
-            data_source_name,
+            document_source,
             request_uuid,
             **cols,
         ).save()
@@ -1092,6 +1094,7 @@ def insert_update_request_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
     # Map of kwargs keys to RequestModel attributes
     field_map = {
         "generated_query": RequestModel.generated_query,
+        "is_similarity_search": RequestModel.is_similarity_search,
         "results": RequestModel.results,
         "request_note": RequestModel.request_note,
     }
@@ -1108,7 +1111,7 @@ def insert_update_request_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
 
 @delete_decorator(
     keys={
-        "hash_key": "data_source_name",
+        "hash_key": "document_source",
         "range_key": "request_uuid",
     },
     model_funct=get_request,

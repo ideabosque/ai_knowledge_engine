@@ -83,11 +83,11 @@ class DataSourceType(ObjectType):
 
 
 class RequestType(ObjectType):
-    data_source_name = String()
+    document_source = String()
     request_uuid = String()
-    data_source_type = String()
     user_query = String()
     generated_query = String()
+    is_similarity_search = Boolean()
     results = List(JSON)
     request_note = String()
     created_at = DateTime()

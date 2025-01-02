@@ -290,11 +290,11 @@ class InsertUpdateRequest(Mutation):
     request = Field(RequestType)
 
     class Arguments:
-        data_source_name = String(required=True)
+        document_source = String(required=True)
         request_uuid = String(required=False)
-        data_source_type = String(required=False)
         user_query = String(required=False)
         generated_query = String(required=False)
+        is_similarity_search = Boolean(required=False)
         result = List(JSON, required=False)
         request_note = String(required=False)
         updated_by = String(required=True)

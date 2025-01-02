@@ -174,7 +174,7 @@ class Query(ObjectType):
 
     request = Field(
         RequestType,
-        data_source_name=String(required=True),
+        document_source=String(required=True),
         request_uuid=String(required=True),
     )
 
@@ -182,10 +182,10 @@ class Query(ObjectType):
         RequestListType,
         page_number=Int(required=False),
         limit=Int(required=False),
-        data_source_name=String(required=False),
-        data_source_types=List(String, required=False),
+        document_source=String(required=False),
         user_inquiry=String(required=False),
         generated_query=String(required=False),
+        is_similarity_search=Boolean(required=False),
     )
 
     knowledge_rag = Field(

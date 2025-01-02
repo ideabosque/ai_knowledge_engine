@@ -132,11 +132,11 @@ class RequestModel(BaseModel):
     class Meta(BaseModel.Meta):
         table_name = "ake-requests"
 
-    data_source_name = UnicodeAttribute(hash_key=True)
+    document_source = UnicodeAttribute(hash_key=True)
     request_uuid = UnicodeAttribute(range_key=True)
-    data_source_type = UnicodeAttribute()
     user_query = UnicodeAttribute()
     generated_query = UnicodeAttribute(null=True)
+    is_similarity_search = BooleanAttribute(default=False)
     results = ListAttribute(of=MapAttribute, default=[])
     request_note = UnicodeAttribute(null=True)
     created_at = UTCDateTimeAttribute()

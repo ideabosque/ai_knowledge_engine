@@ -511,10 +511,9 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "dataSourceName": "XXXXXXXXXXXXXXXXXXX",
-                "requestUuid": "4489495933054095855",
-                "dataSourceType": "XXXXXXXXXXXXXXXXXXX",
-                "userInquiry": "XXXXXXXXXXXXXXXXXXX",
+                "documentSource": "XXXXXXXXXXXXXXXXXXX",
+                "requestUuid": "8345496796697989615",
+                "userQuery": "XXXXXXXXXXXXXXXXXXX",
                 "updatedBy": "XXXXXXXXXXXXXXXXXXX",
             },
         }
@@ -530,8 +529,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "dataSourceName": "XXXXXXXXXXXXXXXXXXX",
-                "requestUuid": "16005342562701218287",
+                "documentSource": "XXXXXXXXXXXXXXXXXXX",
+                "requestUuid": "8345496796697989615",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -544,27 +543,27 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "dataSourceName": "XXXXXXXXXXXXXXXXXXX",
-                "requestUuid": "4489495933054095855",
-            },
-        }
-        response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
-        logger.info(response)
-
-    @unittest.skip("demonstrating skipping")
-    def test_graphql_request_list(self):
-        query = Utility.generate_graphql_operation("requestList", "Query", self.schema)
-        logger.info(f"Query: {query}")
-        payload = {
-            "query": query,
-            "variables": {
-                "dataSourceName": "XXXXXXXXXXXXXXXXXXX",
+                "documentSource": "XXXXXXXXXXXXXXXXXXX",
+                "requestUuid": "8345496796697989615",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
     # @unittest.skip("demonstrating skipping")
+    def test_graphql_request_list(self):
+        query = Utility.generate_graphql_operation("requestList", "Query", self.schema)
+        logger.info(f"Query: {query}")
+        payload = {
+            "query": query,
+            "variables": {
+                "documentSource": "XXXXXXXXXXXXXXXXXXX",
+            },
+        }
+        response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
     def test_graphql_knowledge_rag(self):
         query = Utility.generate_graphql_operation("knowledgeRag", "Query", self.schema)
         logger.info(f"Query: {query}")
