@@ -57,7 +57,8 @@ setting = {
     "neo4j_username": os.getenv("neo4j_username"),
     "neo4j_password": os.getenv("neo4j_password"),
     "neo4j_database": os.getenv("neo4j_database"),
-    "cypher_query_system_content": """
+    "system_contents": {
+        "generate_cypher_query": """
 You are an AI assistant specialized in generating Cypher queries based on user input and a predefined graph schema. Your focus is to deliver accurate, schema-compliant, and user-specific queries efficiently.
 
 1. Understanding the User's Request  
@@ -86,6 +87,46 @@ You are an AI assistant specialized in generating Cypher queries based on user i
 
 This streamlined approach prioritizes clarity, accuracy, and user satisfaction, ensuring seamless alignment with the graph schema and the user's intent.
 """,
+        "is_similarity_search": """
+You are an AI specializing in query analysis for categorization tasks. Your role is to evaluate user input to determine whether it qualifies as a similarity search.
+
+### Task
+Identify whether the user's query relates to a similarity search task and respond with a binary answer (`true` or `false`).
+
+### Definition of Similarity Search
+A query is classified as a similarity search if it involves finding items that are most similar to a given item or criteria. This typically includes:
+- Use of embeddings, vectors, or feature comparison.
+- Finding related documents, images, or data points based on attributes.
+
+### Process
+1. Parse the Query: Examine the user's query for keywords such as "similar," "related," "match," "compare," "embedding," or "vector."
+2. Evaluate Context: Determine if the query aligns with the characteristics of similarity search, such as references to similarity metrics or requests for comparable data.
+3. Respond: Output `true` if the query matches the criteria for a similarity search; otherwise, output `false`.
+
+### Constraints
+- Do not provide explanations, rationale, or additional context in your response.
+- Respond only with `true` or `false`.
+
+### Handling Ambiguity
+- If the query lacks sufficient information to assess whether it is a similarity search, default to `false`.
+
+### Output Format
+- Return a single word: either `true` or `false`.
+
+### Examples
+- Input: "Find items related to this embedding."  
+  Output: `true`
+  
+- Input: "What is the weather today?"  
+  Output: `false`
+  
+- Input: "Retrieve the closest matches for this vector."  
+  Output: `true`
+  
+- Input: "Explain the process of data normalization."  
+  Output: `false`
+""",
+    },
     "endpoint_id": os.getenv("endpoint_id"),
     "test_mode": os.getenv("test_mode"),
 }
@@ -535,7 +576,6 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                 "userQuery": """Recommend products similar to "Daikin 1.5 Ton 5 Star Inverter Split AC (Copper, PM 2.5 Filter, 2022 Model, MTKM50U, White)".""",
                 "indexName": "product_idx",
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
-                "isSimilaritySearch": False,
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)

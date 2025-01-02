@@ -7,7 +7,6 @@ __author__ = "bibow"
 import logging
 import os
 import sys
-import threading
 import traceback
 import zipfile
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -16,7 +15,12 @@ import boto3
 import pendulum
 from graphene import ResolveInfo
 from openai import OpenAI
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from neo4j_graph_connector import Neo4jConnector
 from redis_stack_connector import RedisStackConnector
@@ -53,6 +57,19 @@ from .types import (
     RequestType,
 )
 
+
+class SchemaRetrievalError(Exception):
+    """Raised when the graph schema cannot be retrieved."""
+
+    pass
+
+
+class InsufficientDetailsError(Exception):
+    """Raised when insufficient details are provided in the user query."""
+
+    pass
+
+
 openai_client = None
 openai_model = None
 neo4j_connector = None
@@ -60,7 +77,7 @@ redis_stack_connector = None
 redis_index_config = None
 neo4j_database = None
 graph_schema = None
-cypher_query_system_content = None
+system_contents = None
 adaptor_bucket_name = None
 adaptor_zip_path = None
 adaptor_extract_path = None
@@ -71,7 +88,7 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
     try:
         global aws_s3
         global openai_client, openai_model
-        global neo4j_connector, neo4j_database, graph_schema
+        global neo4j_connector, neo4j_database, graph_schema, system_contents
         global redis_stack_connector, redis_index_config
         global adaptor_bucket_name, adaptor_zip_path, adaptor_extract_path
 
@@ -114,7 +131,7 @@ def _initialize_openai_client(setting: Dict[str, Any]) -> None:
 
 
 def _initialize_neo4j(logger: logging.Logger, setting: Dict[str, Any]) -> None:
-    global neo4j_connector, neo4j_database, graph_schema, cypher_query_system_content
+    global neo4j_connector, neo4j_database, graph_schema, system_contents
     if (
         "neo4j_uri" in setting
         and "neo4j_username" in setting
@@ -132,8 +149,8 @@ def _initialize_neo4j(logger: logging.Logger, setting: Dict[str, Any]) -> None:
         neo4j_database = setting["neo4j_database"]
         graph_schema = neo4j_connector.get_graph_schema(database=neo4j_database)
 
-    if "cypher_query_system_content" in setting:
-        cypher_query_system_content = setting["cypher_query_system_content"]
+    if "system_contents" in setting:
+        system_contents = setting["system_contents"]
 
 
 def _initialize_redis_stack(logger: logging.Logger, setting: Dict[str, Any]) -> None:
@@ -726,32 +743,17 @@ def resolve_knowledge_graph_metadata_list_handler(
 ) -> Any:
     document_source = kwargs.get("document_source")
     document_types = kwargs.get("document_types")
-    data_source_name = kwargs.get("data_source_name")
-    data_source_types = kwargs.get("data_source_types")
-    data_view_name = kwargs.get("data_view_name")
     status = kwargs.get("status")
     args = []
     inquiry_funct = KnowledgeGraphMetadataModel.scan
     count_funct = KnowledgeGraphMetadataModel.count
     if document_source:
-        args = [document_type, None]
+        args = [document_source, None]
         inquiry_funct = KnowledgeGraphMetadataModel.query
 
     the_filters = None  # We can add filters for the query.
     if document_types:
         the_filters &= KnowledgeGraphMetadataModel.document_type.is_in(*document_types)
-    if data_source_name:
-        the_filters &= KnowledgeGraphMetadataModel.data_source_name.contains(
-            data_source_name
-        )
-    if data_source_types:
-        the_filters &= KnowledgeGraphMetadataModel.data_source_type.is_in(
-            *data_source_types
-        )
-    if data_view_name:
-        the_filters &= KnowledgeGraphMetadataModel.data_view_name.contains(
-            data_view_name
-        )
     if status:
         the_filters &= KnowledgeGraphMetadataModel.status == status
     if the_filters is not None:
@@ -1205,6 +1207,27 @@ def _lookup_and_merge_results(
         raise e
 
 
+def _is_similarity_search(user_query: str) -> bool:
+    """Check if the user query indicates a similarity search."""
+    response = openai_client.chat.completions.create(
+        model=openai_model,
+        messages=[
+            {
+                "role": "system",
+                "content": system_contents["is_similarity_search"],
+            },
+            {
+                "role": "user",
+                "content": f"Is this query ({user_query}) a similarity search?",
+            },
+        ],
+    )
+    is_similarity_search = response.choices[0].message.content
+    if is_similarity_search == "true":
+        return True
+    return False
+
+
 # Use AI to generate Cypher query dynamically based on schema
 def _generate_cypher_query(user_query: str, graph_schema: str) -> str:
     response = openai_client.chat.completions.create(
@@ -1212,7 +1235,7 @@ def _generate_cypher_query(user_query: str, graph_schema: str) -> str:
         messages=[
             {
                 "role": "system",
-                "content": cypher_query_system_content,
+                "content": system_contents["generate_cypher_query"],
             },
             {
                 "role": "user",
@@ -1222,9 +1245,9 @@ def _generate_cypher_query(user_query: str, graph_schema: str) -> str:
     )
     cypher_query = response.choices[0].message.content
     if cypher_query.startswith("Unable to retrieve the graph schema."):
-        raise Exception(cypher_query)
+        raise SchemaRetrievalError(cypher_query)
     if cypher_query.startswith("Could you provide more details?"):
-        raise Exception(cypher_query)
+        raise InsufficientDetailsError(cypher_query)
 
     return cypher_query
 
@@ -1248,6 +1271,14 @@ def _get_enabled_knowledge_graph_metadata(
     return results.next()
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+    retry=retry_if_exception_type(
+        lambda e: not isinstance(e, (SchemaRetrievalError, InsufficientDetailsError))
+    ),
+    reraise=True,
+)
 def _query_graph(
     logger: logging.Logger, user_query: str, offset: int, limit: int
 ) -> Tuple[int, List[Dict[str, Any]]]:
@@ -1308,7 +1339,7 @@ def _process_and_merge_results(
         offset = kwargs.get("offset", 0)
         limit = kwargs.get("limit", 100)
         k = kwargs.get("k", redis_index_config[index_name]["k"])
-        is_similarity_search = kwargs.get("is_similarity_search", False)
+        is_similarity_search = _is_similarity_search(user_query)
 
         if is_similarity_search:
             vector_results_total, vector_results = _query_vector(
