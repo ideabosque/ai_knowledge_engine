@@ -1116,17 +1116,27 @@ def delete_request_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> bool:
     return True
 
 
-# Merge results by looking up graph results with vector results and the merge rule.
 def _lookup_and_merge_results(
     logger: logging.Logger,
     vector_results: List[Dict[str, Any]],
     merge_rule: Dict[str, Any],
 ) -> List[Dict[str, Any]]:
+    """
+    Perform a lookup in the graph database for each vector result and merge the results based on the specified merge rule.
+
+    Args:
+        vector_results (List[Dict[str, Any]]): The results from the vector search.
+        merge_rule (Dict[str, Any]): The rules defining how to merge vector and graph data.
+        logger (Any): The logger instance for logging information and errors.
+
+    Returns:
+        List[Dict[str, Any]]: The merged results, combining vector and graph data.
+    """
     try:
         merge_key = merge_rule["merge_key"]
         graph_attributes = merge_rule["attributes_to_include"]["graph"]
 
-        # Build a list of transaction IDs from vector results
+        # Extract transaction IDs from vector results for lookup
         transaction_ids = [
             f"'{vector_item.get(merge_key)}'"
             for vector_item in vector_results
@@ -1136,15 +1146,14 @@ def _lookup_and_merge_results(
         if not transaction_ids:
             return []
 
+        # Construct the Cypher query for bulk graph lookup
         cypher_query = (
-            f"MATCH (n)-[r]->(m) WHERE n.{merge_key} IN [{', '.join(transaction_ids)}] RETURN "
-            + ", ".join(
-                [f"n.{attr} AS {attr}" for attr in graph_attributes]
-                + ["type(r) AS relationship_type", "m.name AS related_entity"]
-            )
+            f"MATCH (n)-[r]->(m) WHERE n.{merge_key} IN [{', '.join(transaction_ids)}] "
+            f"RETURN {', '.join([f'n.{attr} AS {attr}' for attr in graph_attributes] + ['type(r) AS relationship_type', 'm.name AS related_entity'])}"
         )
-        # logger.info(f"Generated Cypher query for bulk lookup: {cypher_query}")
+        logger.info(f"Generated Cypher query for bulk lookup: {cypher_query}")
 
+        # Execute the Cypher query
         _, graph_results = neo4j_connector.execute_cypher_query_with_pagination(
             cypher_query,
             database=neo4j_database,
@@ -1153,7 +1162,7 @@ def _lookup_and_merge_results(
             get_total=False,
         )
 
-        # Create a lookup dictionary for graph results
+        # Organize graph results into a lookup dictionary
         graph_lookup = {}
         for result in graph_results:
             key = result[merge_key]
@@ -1169,12 +1178,12 @@ def _lookup_and_merge_results(
                 }
             )
 
-        # Merge vector results with graph results
+        # Merge vector results with corresponding graph data
         merged_results = []
         for vector_item in vector_results:
             merged_item = {merge_key: vector_item.get(merge_key)}
 
-            # Include specified attributes from vector results
+            # Add vector attributes to the merged result
             merged_item.update(
                 {
                     attr: vector_item.get(attr)
@@ -1183,7 +1192,7 @@ def _lookup_and_merge_results(
                 }
             )
 
-            # Include graph attributes if present
+            # Add graph attributes if available
             graph_data = graph_lookup.get(vector_item.get(merge_key), {})
             merged_item.update(graph_data)
 
@@ -1192,7 +1201,7 @@ def _lookup_and_merge_results(
         return merged_results
 
     except Exception as e:
-        logger.error(f"Error during query and merge: {traceback.format_exc()}")
+        logger.error(f"Error during lookup and merge: {traceback.format_exc()}")
         raise e
 
 
