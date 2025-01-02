@@ -57,8 +57,10 @@ openai_client = None
 openai_model = None
 neo4j_connector = None
 redis_stack_connector = None
+redis_index_config = None
 neo4j_database = None
 graph_schema = None
+cypher_query_system_content = None
 adaptor_bucket_name = None
 adaptor_zip_path = None
 adaptor_extract_path = None
@@ -70,7 +72,7 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
         global aws_s3
         global openai_client, openai_model
         global neo4j_connector, neo4j_database, graph_schema
-        global redis_stack_connector
+        global redis_stack_connector, redis_index_config
         global adaptor_bucket_name, adaptor_zip_path, adaptor_extract_path
 
         _initialize_aws_services(setting)
@@ -112,7 +114,7 @@ def _initialize_openai_client(setting: Dict[str, Any]) -> None:
 
 
 def _initialize_neo4j(logger: logging.Logger, setting: Dict[str, Any]) -> None:
-    global neo4j_connector, neo4j_database, graph_schema
+    global neo4j_connector, neo4j_database, graph_schema, cypher_query_system_content
     if (
         "neo4j_uri" in setting
         and "neo4j_username" in setting
@@ -130,11 +132,15 @@ def _initialize_neo4j(logger: logging.Logger, setting: Dict[str, Any]) -> None:
         neo4j_database = setting["neo4j_database"]
         graph_schema = neo4j_connector.get_graph_schema(database=neo4j_database)
 
+    if "cypher_query_system_content" in setting:
+        cypher_query_system_content = setting["cypher_query_system_content"]
+
 
 def _initialize_redis_stack(logger: logging.Logger, setting: Dict[str, Any]) -> None:
-    global redis_stack_connector
+    global redis_stack_connector, redis_index_config
     if (
-        "REDIS_HOST" in setting
+        "openai_api_key" in setting
+        and "REDIS_HOST" in setting
         and "REDIS_PORT" in setting
         and "REDIS_PASSWORD" in setting
         and "EMBEDDING_MODEL" in setting
@@ -143,12 +149,14 @@ def _initialize_redis_stack(logger: logging.Logger, setting: Dict[str, Any]) -> 
             logger,
             **{
                 "openai_api_key": setting["openai_api_key"],
-                "host": setting["REDIS_HOST"],
-                "port": setting["REDIS_PORT"],
-                "password": setting["REDIS_PASSWORD"],
-                "embedding_model": setting["EMBEDDING_MODEL"],
+                "REDIS_HOST": setting["REDIS_HOST"],
+                "REDIS_PORT": setting["REDIS_PORT"],
+                "REDIS_PASSWORD": setting["REDIS_PASSWORD"],
+                "EMBEDDING_MODEL": setting["EMBEDDING_MODEL"],
             },
         )
+    if "redis_index_config" in setting:
+        redis_index_config = setting["redis_index_config"]
 
 
 def _setup_function_paths(setting: Dict[str, Any]) -> None:
@@ -1151,43 +1159,12 @@ def _merge_results(vector_results, graph_results, merge_rule):
 
 # Use AI to generate Cypher query dynamically based on schema
 def _generate_cypher_query(user_query: str, graph_schema: str) -> str:
-    openai_system_content = """
-    You are an AI assistant proficient in generating Cypher queries tailored to a graph schema, ensuring clarity, accuracy, and adherence to Neo4j standards.
-
-    1. Understand the User's Inquiry
-
-    - Analyze Input: Examine the user's request to identify the core intent and relevant entities or relationships described within the graph schema.
-    - Clarify Ambiguity: If the inquiry lacks clarity or sufficient detail, ask for additional information or examples to ensure accurate query generation.
-    - Preserve Quoted Terms: Any terms or phrases enclosed in double quotes (e.g., `"High"`) must be included in the Cypher query exactly as provided, maintaining original capitalization and formatting (e.g., `"High"` must not become `"high"`). This rule is non-negotiable and must be followed during query creation.
-
-    2. Generate a Graph Query
-
-    - Build with Precision: Construct a Cypher query aligned with the user's input and the graph schema's design.
-    - Ensure Compliance: Validate that the query adheres to Neo4j's Cypher syntax and accurately retrieves the requested data.
-    - Integrate User-Specific Terms: Embed all double-quoted terms from the user's inquiry as-is, preserving their exact wording and format.
-
-    3. Error Handling Guidelines
-
-    - Schema Retrieval Issues: If the graph schema is unavailable, respond with a message such as:  
-    "Unable to retrieve the graph schema."
-    - Ambiguous Requests: For unclear inquiries, prompt the user with clarifying questions, such as:  
-    "Could you provide more details?"
-
-    4. Additional Notes
-
-    - Adherence to Cypher Standards: Guarantee all queries conform to Neo4j Cypher syntax for correctness and functionality.
-    - Schema Validation: Incorporate schema validation steps before generating the query to avoid errors or invalid results.
-    - Iterative Refinement: Facilitate query adjustments based on user feedback, enabling refinement and improved accuracy in meeting the user's needs.
-
-
-    This approach ensures a user-focused, reliable, and flexible framework for generating Cypher queries while maintaining the integrity of the graph schema and user-provided inputs.
-"""
-    response = openai_client.ChatCompletion.create(
+    response = openai_client.chat.completions.create(
         model=openai_model,
         messages=[
             {
                 "role": "system",
-                "content": openai_system_content,
+                "content": cypher_query_system_content,
             },
             {
                 "role": "user",
@@ -1195,7 +1172,7 @@ def _generate_cypher_query(user_query: str, graph_schema: str) -> str:
             },
         ],
     )
-    cypher_query = response["choices"][0]["message"]["content"]
+    cypher_query = response.choices[0].message.content
     if cypher_query.startswith("Unable to retrieve the graph schema."):
         raise Exception(cypher_query)
     if cypher_query.startswith("Could you provide more details?"):
@@ -1231,10 +1208,7 @@ def _process_and_merge_results(
         user_query = kwargs.get("user_query")
         index_name = kwargs.get("index_name")
         document_source = kwargs.get("document_source")
-        vector_field = kwargs.get("vector_field", "content_vector")
-        return_fields = kwargs.get("return_fields")
         hybrid_fields = kwargs.get("hybrid_fields", "*")
-        k = kwargs.get("k", 100)
         offset = kwargs.get("offset", 0)
         limit = kwargs.get("limit", 100)
         is_similarity_search = kwargs.get("is_similarity_search", False)
@@ -1249,6 +1223,7 @@ def _process_and_merge_results(
             nonlocal graph_total, graph_results
             try:
                 cypher_query = _generate_cypher_query(user_query, graph_schema)
+                logger.info(f"""Generated Cypher query: {cypher_query}""")
 
                 # Retrieve the total count and first batch of results
                 graph_total, initial_results = (
@@ -1291,10 +1266,10 @@ def _process_and_merge_results(
                     redis_stack_connector.search_redis(
                         user_query,
                         index_name,
-                        vector_field=vector_field,
-                        return_fields=return_fields,
+                        vector_field=redis_index_config[index_name]["vector_field"],
+                        return_fields=redis_index_config[index_name]["return_fields"],
                         hybrid_fields=hybrid_fields,
-                        k=k,
+                        k=redis_index_config[index_name]["k"],
                         offset=offset,
                         limit=limit,
                     )

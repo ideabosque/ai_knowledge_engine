@@ -30,6 +30,60 @@ setting = {
     "adaptor_bucket_name": os.getenv("adaptor_bucket_name"),
     "adaptor_zip_path": os.getenv("adaptor_zip_path"),
     "adaptor_extract_path": os.getenv("adaptor_extract_path"),
+    "REDIS_HOST": os.getenv("REDIS_HOST"),
+    "REDIS_PORT": os.getenv("REDIS_PORT"),
+    "REDIS_PASSWORD": os.getenv("REDIS_PASSWORD"),
+    "EMBEDDING_MODEL": os.getenv("EMBEDDING_MODEL"),
+    "redis_index_config": {
+        "product_idx": {
+            "vector_field": "title_vector",
+            "return_fields": [
+                "id",
+                "name",
+                "main_category",
+                "sub_category",
+                "image",
+                "link",
+                "ratings",
+                "no_of_ratings",
+                "discount_price",
+                "actual_price",
+            ],
+            "k": 100,
+        }
+    },
+    "neo4j_uri": os.getenv("neo4j_uri"),
+    "neo4j_username": os.getenv("neo4j_username"),
+    "neo4j_password": os.getenv("neo4j_password"),
+    "neo4j_database": os.getenv("neo4j_database"),
+    "cypher_query_system_content": """
+You are an AI assistant specialized in generating Cypher queries based on user input and a predefined graph schema. Your focus is to deliver accurate, schema-compliant, and user-specific queries efficiently.
+
+1. Understanding the User's Request  
+- Analyze the Input: Evaluate the user's query to determine the primary intent, entities, and relationships defined in the graph schema.  
+- Resolve Ambiguities: For unclear or incomplete requests, request additional details or examples to ensure precise query formulation.  
+- Preserve Quoted Terms: Any terms enclosed in double quotes (e.g., `"High"`) must be included exactly as provided, maintaining their original capitalization and formatting.  
+
+2. Query Generation  
+- Construct with Precision: Generate Cypher queries that accurately represent the user's intent while adhering to the graph schema's design.  
+- Adhere to Standards: Ensure all queries strictly follow Neo4j's Cypher syntax for validity and functionality.  
+- Embed User-Specific Terms: Retain user-provided terms as-is, particularly those enclosed in double quotes, without altering their structure.  
+- Output Requirements:  
+    - The query must be formatted as a single-line plain text string.  
+    - Aliases Required: All nodes and relationships must include aliases, and every term in the RETURN clause must use `AS` to assign an alias (e.g., `RETURN p.name AS name, p.discount_price AS discount_price`).  
+    - No Line Breaks: The query should not contain line breaks (e.g., "\n") and must exclude any additional explanations or formatting.  
+
+3. Error Handling  
+- Missing Schema: If the graph schema cannot be retrieved, respond with: `"Unable to retrieve the graph schema."`  
+- Ambiguous Input: For vague or incomplete requests, politely prompt the user for clarification (e.g., `"Could you provide more details?"`).  
+
+4. Additional Guidelines  
+- Conformity to Cypher Standards: Ensure all queries are valid, functional, and aligned with Neo4j's syntax and best practices.  
+- Schema Validation: Perform schema checks before query generation to prevent errors or invalid outputs.  
+- Iterative Refinement: Adjust and improve queries based on user feedback to achieve precise alignment with their requirements.  
+
+This streamlined approach prioritizes clarity, accuracy, and user satisfaction, ensuring seamless alignment with the graph schema and the user's intent.
+""",
     "endpoint_id": os.getenv("endpoint_id"),
     "test_mode": os.getenv("test_mode"),
 }
@@ -468,6 +522,22 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         logger.info(response)
 
     # @unittest.skip("demonstrating skipping")
+    def test_graphql_knowledge_rag(self):
+        query = Utility.generate_graphql_operation("knowledgeRag", "Query", self.schema)
+        logger.info(f"Query: {query}")
+        payload = {
+            "query": query,
+            "variables": {
+                "userQuery": """Which product has the highest discounted price in the "High" price range?""",
+                # "indexName": "product_idx",
+                "documentSource": "XXXXXXXXXXXXXXXXXXX",
+                "isSimilaritySearch": False,
+            },
+        }
+        response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
+        logger.info(response)
+
+    @unittest.skip("demonstrating skipping")
     def test_graphql_data_view(self):
         query = Utility.generate_graphql_operation("dataView", "Query", self.schema)
         logger.info(f"Query: {query}")
