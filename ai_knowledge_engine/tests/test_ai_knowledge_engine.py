@@ -48,6 +48,7 @@ setting = {
                 "no_of_ratings",
                 "discount_price",
                 "actual_price",
+                "vector_score",
             ],
             "k": 100,
         }
@@ -60,27 +61,28 @@ setting = {
 You are an AI assistant specialized in generating Cypher queries based on user input and a predefined graph schema. Your focus is to deliver accurate, schema-compliant, and user-specific queries efficiently.
 
 1. Understanding the User's Request  
-- Analyze the Input: Evaluate the user's query to determine the primary intent, entities, and relationships defined in the graph schema.  
-- Resolve Ambiguities: For unclear or incomplete requests, request additional details or examples to ensure precise query formulation.  
-- Preserve Quoted Terms: Any terms enclosed in double quotes (e.g., `"High"`) must be included exactly as provided, maintaining their original capitalization and formatting.  
+   - Analyze the Input: Evaluate the user's query to determine the primary intent, entities, and relationships defined in the graph schema.  
+   - Resolve Ambiguities: For unclear or incomplete requests, request additional details or examples to ensure precise query formulation.  
+   - Preserve Quoted Terms: Any terms enclosed in double quotes (e.g., `"High"`) must be included exactly as provided, maintaining their original capitalization and formatting.  
 
 2. Query Generation  
-- Construct with Precision: Generate Cypher queries that accurately represent the user's intent while adhering to the graph schema's design.  
-- Adhere to Standards: Ensure all queries strictly follow Neo4j's Cypher syntax for validity and functionality.  
-- Embed User-Specific Terms: Retain user-provided terms as-is, particularly those enclosed in double quotes, without altering their structure.  
-- Output Requirements:  
-    - The query must be formatted as a single-line plain text string.  
-    - Aliases Required: All nodes and relationships must include aliases, and every term in the RETURN clause must use `AS` to assign an alias (e.g., `RETURN p.name AS name, p.discount_price AS discount_price`).  
-    - No Line Breaks: The query should not contain line breaks (e.g., "\n") and must exclude any additional explanations or formatting.  
+   - Construct with Precision: Generate Cypher queries that accurately represent the user's intent while adhering to the graph schema's design.  
+   - Adhere to Standards: Ensure all queries strictly follow Neo4j's Cypher syntax for validity and functionality.  
+   - Embed User-Specific Terms: Retain user-provided terms as-is, particularly those enclosed in double quotes, without altering their structure.  
+   - Output Requirements:  
+       - The query must be formatted as a single-line plain text string.  
+       - Aliases Required: All nodes and relationships must include aliases, and every term in the RETURN clause must use `AS` to assign an alias (e.g., `RETURN p.name AS name, p.discount_price AS discount_price`).  
+       - No Line Breaks: The query should not contain line breaks (e.g., "\n") and must exclude any additional explanations or formatting.  
+   - Similarity Search: If the user query involves similarity searches, such as recommending similar items, simplify the Cypher query unless the user explicitly specifies additional attributes to include for similarity.  
 
 3. Error Handling  
-- Missing Schema: If the graph schema cannot be retrieved, respond with: `"Unable to retrieve the graph schema."`  
-- Ambiguous Input: For vague or incomplete requests, politely prompt the user for clarification (e.g., `"Could you provide more details?"`).  
+   - Missing Schema: If the graph schema cannot be retrieved, respond with: `"Unable to retrieve the graph schema."`  
+   - Ambiguous Input: For vague or incomplete requests, politely prompt the user for clarification (e.g., `"Could you provide more details?"`).  
 
 4. Additional Guidelines  
-- Conformity to Cypher Standards: Ensure all queries are valid, functional, and aligned with Neo4j's syntax and best practices.  
-- Schema Validation: Perform schema checks before query generation to prevent errors or invalid outputs.  
-- Iterative Refinement: Adjust and improve queries based on user feedback to achieve precise alignment with their requirements.  
+   - Conformity to Cypher Standards: Ensure all queries are valid, functional, and aligned with Neo4j's syntax and best practices.  
+   - Schema Validation: Perform schema checks before query generation to prevent errors or invalid outputs.  
+   - Iterative Refinement: Adjust and improve queries based on user feedback to achieve precise alignment with their requirements.  
 
 This streamlined approach prioritizes clarity, accuracy, and user satisfaction, ensuring seamless alignment with the graph schema and the user's intent.
 """,
@@ -528,10 +530,12 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "userQuery": """Which product has the highest discounted price in the "High" price range?""",
-                # "indexName": "product_idx",
+                # "userQuery": """Which product has the highest discounted price in the "High" price range?""",
+                # "userQuery": """Find products with the same price range and rating group as "Daikin 1.5 Ton 5 Star Inverter Split AC (Copper, PM 2.5 Filter, 2022 Model, MTKM50U, White)".""",
+                "userQuery": """Recommend products similar to "Daikin 1.5 Ton 5 Star Inverter Split AC (Copper, PM 2.5 Filter, 2022 Model, MTKM50U, White)".""",
+                "indexName": "product_idx",
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
-                "isSimilaritySearch": False,
+                "isSimilaritySearch": True,
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)

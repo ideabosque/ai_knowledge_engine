@@ -1116,45 +1116,84 @@ def delete_request_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> bool:
     return True
 
 
-# Merge results with vector results and graph results by the merge rule.
-def _merge_results(vector_results, graph_results, merge_rule):
-    merge_key = merge_rule["merge_key"]
-    vector_attributes = merge_rule["attributes_to_include"]["vector"]
-    graph_attributes = merge_rule["attributes_to_include"]["graph"]
+# Merge results by looking up graph results with vector results and the merge rule.
+def _lookup_and_merge_results(
+    logger: logging.Logger,
+    vector_results: List[Dict[str, Any]],
+    merge_rule: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    try:
+        merge_key = merge_rule["merge_key"]
+        graph_attributes = merge_rule["attributes_to_include"]["graph"]
 
-    # Build a lookup for graph results
-    graph_lookup = {item[merge_key]: item for item in graph_results}
+        # Build a list of transaction IDs from vector results
+        transaction_ids = [
+            f"'{vector_item.get(merge_key)}'"
+            for vector_item in vector_results
+            if vector_item.get(merge_key)
+        ]
 
-    # Merge results
-    merged_results = []
-    for vector_item in vector_results:
-        transaction_id = vector_item[merge_key]
-        graph_item = graph_lookup.get(transaction_id, {})
+        if not transaction_ids:
+            return []
 
-        # Initialize merged item with the merge key
-        merged_item = {merge_key: transaction_id}
+        cypher_query = (
+            f"MATCH (n)-[r]->(m) WHERE n.{merge_key} IN [{', '.join(transaction_ids)}] RETURN "
+            + ", ".join(
+                [f"n.{attr} AS {attr}" for attr in graph_attributes]
+                + ["type(r) AS relationship_type", "m.name AS related_entity"]
+            )
+        )
+        # logger.info(f"Generated Cypher query for bulk lookup: {cypher_query}")
 
-        # Include specified attributes from vector results
-        merged_item.update(
-            {
-                attr: vector_item.get(attr)
-                for attr in vector_attributes
-                if attr in vector_item
-            }
+        _, graph_results = neo4j_connector.execute_cypher_query_with_pagination(
+            cypher_query,
+            database=neo4j_database,
+            limit=len(transaction_ids),
+            skip=0,
+            get_total=False,
         )
 
-        # Include specified attributes from graph results
-        merged_item.update(
-            {
-                attr: graph_item.get(attr)
-                for attr in graph_attributes
-                if attr in graph_item
-            }
-        )
+        # Create a lookup dictionary for graph results
+        graph_lookup = {}
+        for result in graph_results:
+            key = result[merge_key]
+            if key not in graph_lookup:
+                graph_lookup[key] = {
+                    attr: result.get(attr) for attr in graph_attributes
+                }
+                graph_lookup[key]["relationships"] = []
+            graph_lookup[key]["relationships"].append(
+                {
+                    "type": result.get("relationship_type"),
+                    "related_entity": result.get("related_entity"),
+                }
+            )
 
-        merged_results.append(merged_item)
+        # Merge vector results with graph results
+        merged_results = []
+        for vector_item in vector_results:
+            merged_item = {merge_key: vector_item.get(merge_key)}
 
-    return merged_results
+            # Include specified attributes from vector results
+            merged_item.update(
+                {
+                    attr: vector_item.get(attr)
+                    for attr in merge_rule["attributes_to_include"]["vector"]
+                    if attr in vector_item
+                }
+            )
+
+            # Include graph attributes if present
+            graph_data = graph_lookup.get(vector_item.get(merge_key), {})
+            merged_item.update(graph_data)
+
+            merged_results.append(merged_item)
+
+        return merged_results
+
+    except Exception as e:
+        logger.error(f"Error during query and merge: {traceback.format_exc()}")
+        raise e
 
 
 # Use AI to generate Cypher query dynamically based on schema
@@ -1213,20 +1252,19 @@ def _process_and_merge_results(
         limit = kwargs.get("limit", 100)
         is_similarity_search = kwargs.get("is_similarity_search", False)
 
-        graph_total = 0
+        graph_results_total = 0
         graph_results = []
         vector_results_total = 0
         vector_results = []
-        exceptions = []
 
         def query_graph():
-            nonlocal graph_total, graph_results
+            nonlocal graph_results_total, graph_results
             try:
                 cypher_query = _generate_cypher_query(user_query, graph_schema)
                 logger.info(f"""Generated Cypher query: {cypher_query}""")
 
                 # Retrieve the total count and first batch of results
-                graph_total, initial_results = (
+                graph_results_total, graph_results = (
                     neo4j_connector.execute_cypher_query_with_pagination(
                         cypher_query,
                         database=neo4j_database,
@@ -1236,28 +1274,9 @@ def _process_and_merge_results(
                     )
                 )
 
-                graph_results.extend(initial_results)
-
-                # If similarity search is enabled and graph_total is greater than the initial results,
-                # retrieve all remaining results using a loop
-                if is_similarity_search and graph_total > len(graph_results):
-                    skip = len(graph_results)
-                    while skip < graph_total:
-                        batch_results = (
-                            neo4j_connector.execute_cypher_query_with_pagination(
-                                cypher_query,
-                                database=neo4j_database,
-                                limit=limit,
-                                skip=skip,
-                                get_total=False,
-                            )
-                        )
-                        graph_results.extend(batch_results)
-                        skip += len(batch_results)
-
             except Exception as e:
                 logger.error(f"Graph query failed: {traceback.format_exc()}")
-                exceptions.append(e)
+                raise e
 
         def query_vector():
             nonlocal vector_results_total, vector_results
@@ -1276,39 +1295,32 @@ def _process_and_merge_results(
                 )
             except Exception as e:
                 logger.error(f"Vector query failed: {traceback.format_exc()}")
-                exceptions.append(e)
+                raise e
 
-        # Create and start the graph query thread
-        graph_thread = threading.Thread(target=query_graph)
-        graph_thread.start()
-
-        # If similarity search is enabled, create and start the vector query thread
         if is_similarity_search:
-            vector_thread = threading.Thread(target=query_vector)
-            vector_thread.start()
-            vector_thread.join()
+            # Perform vector search only
+            query_vector()
 
-        # Wait for the graph query thread to complete
-        graph_thread.join()
+            # Retrieve the knowledge graph metadata
+            knowledge_graph_metadata = _get_enabled_knowledge_graph_metadata(
+                document_source
+            )
 
-        # If any exceptions occurred in the threads, raise the first one
-        if exceptions:
-            raise exceptions[0]
+            merged_results = _lookup_and_merge_results(
+                logger,
+                Utility.json_loads(Utility.json_dumps(vector_results)),
+                knowledge_graph_metadata.merge_rule,
+            )
 
-        if not is_similarity_search:
-            return graph_total, graph_results
+            return (
+                vector_results_total,
+                merged_results,
+            )
+        else:
+            # Perform graph search only
+            query_graph()
+            return graph_results_total, graph_results
 
-        # Retrieve the knowledge graph metadata
-        knowledge_graph_metadata = _get_enabled_knowledge_graph_metadata(
-            document_source
-        )
-
-        # Merge the vector results and the graph results
-        merge_results = _merge_results(
-            vector_results, graph_results, knowledge_graph_metadata.merge_rule
-        )
-
-        return vector_results_total, merge_results
     except Exception as e:
         log = traceback.format_exc()
         logger.error(log)
