@@ -196,6 +196,7 @@ class Query(ObjectType):
         hybrid_fields=List(String, required=False),
         offset=Int(required=False),
         limit=Int(required=False),
+        k=Int(required=False),
         is_similarity_search=Boolean(required=False),
     )
 

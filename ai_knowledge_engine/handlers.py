@@ -10,7 +10,7 @@ import sys
 import threading
 import traceback
 import zipfile
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import boto3
 import pendulum
@@ -1248,91 +1248,94 @@ def _get_enabled_knowledge_graph_metadata(
     return results.next()
 
 
-# Define the updated function
+def _query_graph(
+    logger: logging.Logger, user_query: str, offset: int, limit: int
+) -> Tuple[int, List[Dict[str, Any]]]:
+    """Executes a query on the graph database."""
+    try:
+        cypher_query = _generate_cypher_query(user_query, graph_schema)
+        logger.info(f"Generated Cypher query: {cypher_query}")
+
+        # Retrieve the total count and first batch of results
+        return neo4j_connector.execute_cypher_query_with_pagination(
+            cypher_query,
+            database=neo4j_database,
+            limit=limit,
+            skip=offset,
+            get_total=True,
+        )
+    except Exception as e:
+        logger.error(f"Graph query failed: {traceback.format_exc()}")
+        raise e
+
+
+def _query_vector(
+    logger: logging.Logger,
+    user_query: str,
+    index_name: str,
+    hybrid_fields: str,
+    k: int,
+    offset: int,
+    limit: int,
+) -> Tuple[int, List[Dict[str, Any]]]:
+    """Executes a query on the vector search engine."""
+    try:
+        return redis_stack_connector.search_redis(
+            user_query,
+            index_name,
+            vector_field=redis_index_config[index_name]["vector_field"],
+            return_fields=redis_index_config[index_name]["return_fields"],
+            hybrid_fields=hybrid_fields,
+            k=k,
+            offset=offset,
+            limit=limit,
+        )
+    except Exception as e:
+        logger.error(f"Vector query failed: {traceback.format_exc()}")
+        raise e
+
+
+# Define the updated function and helper methods
 def _process_and_merge_results(
     logger: logging.Logger, **kwargs: Dict[str, Any]
 ) -> List[Dict[str, Any]]:
     try:
+        # Extract parameters from kwargs
         user_query = kwargs.get("user_query")
         index_name = kwargs.get("index_name")
         document_source = kwargs.get("document_source")
         hybrid_fields = kwargs.get("hybrid_fields", "*")
         offset = kwargs.get("offset", 0)
         limit = kwargs.get("limit", 100)
+        k = kwargs.get("k", redis_index_config[index_name]["k"])
         is_similarity_search = kwargs.get("is_similarity_search", False)
 
-        graph_results_total = 0
-        graph_results = []
-        vector_results_total = 0
-        vector_results = []
-
-        def query_graph():
-            nonlocal graph_results_total, graph_results
-            try:
-                cypher_query = _generate_cypher_query(user_query, graph_schema)
-                logger.info(f"""Generated Cypher query: {cypher_query}""")
-
-                # Retrieve the total count and first batch of results
-                graph_results_total, graph_results = (
-                    neo4j_connector.execute_cypher_query_with_pagination(
-                        cypher_query,
-                        database=neo4j_database,
-                        limit=limit,
-                        skip=offset,
-                        get_total=True,
-                    )
-                )
-
-            except Exception as e:
-                logger.error(f"Graph query failed: {traceback.format_exc()}")
-                raise e
-
-        def query_vector():
-            nonlocal vector_results_total, vector_results
-            try:
-                vector_results_total, vector_results = (
-                    redis_stack_connector.search_redis(
-                        user_query,
-                        index_name,
-                        vector_field=redis_index_config[index_name]["vector_field"],
-                        return_fields=redis_index_config[index_name]["return_fields"],
-                        hybrid_fields=hybrid_fields,
-                        k=redis_index_config[index_name]["k"],
-                        offset=offset,
-                        limit=limit,
-                    )
-                )
-            except Exception as e:
-                logger.error(f"Vector query failed: {traceback.format_exc()}")
-                raise e
-
         if is_similarity_search:
-            # Perform vector search only
-            query_vector()
+            vector_results_total, vector_results = _query_vector(
+                logger, user_query, index_name, hybrid_fields, k, offset, limit
+            )
 
-            # Retrieve the knowledge graph metadata
+            # Retrieve metadata and merge results
             knowledge_graph_metadata = _get_enabled_knowledge_graph_metadata(
                 document_source
             )
-
             merged_results = _lookup_and_merge_results(
                 logger,
                 Utility.json_loads(Utility.json_dumps(vector_results)),
                 knowledge_graph_metadata.merge_rule,
             )
 
-            return (
-                vector_results_total,
-                merged_results,
-            )
-        else:
-            # Perform graph search only
-            query_graph()
-            return graph_results_total, graph_results
+            return vector_results_total, merged_results
+
+        # Query functions
+        graph_results_total, graph_results = _query_graph(
+            logger, user_query, offset, limit
+        )
+
+        return graph_results_total, graph_results
 
     except Exception as e:
-        log = traceback.format_exc()
-        logger.error(log)
+        logger.error(f"Error processing and merging results: {traceback.format_exc()}")
         raise e
 
 

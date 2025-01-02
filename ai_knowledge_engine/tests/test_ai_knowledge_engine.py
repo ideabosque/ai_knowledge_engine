@@ -535,7 +535,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                 "userQuery": """Recommend products similar to "Daikin 1.5 Ton 5 Star Inverter Split AC (Copper, PM 2.5 Filter, 2022 Model, MTKM50U, White)".""",
                 "indexName": "product_idx",
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
-                "isSimilaritySearch": True,
+                "isSimilaritySearch": False,
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
