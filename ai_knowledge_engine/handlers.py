@@ -1222,7 +1222,7 @@ def _is_similarity_search(user_query: str) -> bool:
             },
             {
                 "role": "user",
-                "content": f"Is this query ({user_query}) a similarity search based on schema: {graph_schema}?",
+                "content": f"Is this query ({user_query}) a similarity search based on schema: ({graph_schema})?",
             },
         ],
     )
