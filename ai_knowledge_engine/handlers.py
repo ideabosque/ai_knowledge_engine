@@ -1284,11 +1284,23 @@ def _get_enabled_knowledge_graph_metadata(
     reraise=True,
 )
 def _query_graph(
-    logger: logging.Logger, cypher_query: str, offset: int, limit: int
+    logger: logging.Logger,
+    document_source: str,
+    request_uuid: str,
+    user_query: str,
+    offset: int,
+    limit: int,
 ) -> Tuple[int, List[Dict[str, Any]]]:
     """Executes a query on the graph database."""
     try:
         # Retrieve the total count and first batch of results
+        cypher_query = _generate_cypher_query(user_query, graph_schema)
+        logger.info(f"Generated Cypher query: {cypher_query}")
+
+        request = RequestModel.get(document_source, request_uuid)
+        request.cypher_query = cypher_query
+        request.save()
+
         return neo4j_connector.execute_cypher_query_with_pagination(
             cypher_query,
             database=neo4j_database,
@@ -1336,12 +1348,12 @@ def _process_and_merge_results(
         user_query = kwargs.get("user_query")
         index_name = kwargs.get("index_name")
         document_source = kwargs.get("document_source")
+        request_uuid = kwargs.get("request_uuid")
         hybrid_fields = kwargs.get("hybrid_fields", "*")
         offset = kwargs.get("offset", 0)
         limit = kwargs.get("limit", 100)
         k = kwargs.get("k", redis_index_config[index_name]["k"])
         is_similarity_search = kwargs.get("is_similarity_search")
-        cypher_query = kwargs.get("cypher_query", None)
 
         if is_similarity_search:
             vector_results_total, vector_results = _query_vector(
@@ -1362,7 +1374,7 @@ def _process_and_merge_results(
 
         # Query functions
         graph_results_total, graph_results = _query_graph(
-            logger, cypher_query, offset, limit
+            logger, document_source, request_uuid, user_query, offset, limit
         )
 
         return graph_results_total, graph_results
@@ -1388,17 +1400,8 @@ def request_decorator() -> Callable:
                 kwargs["is_similarity_search"] = is_similarity_search
                 cols.update({"is_similarity_search": is_similarity_search})
 
-                if not is_similarity_search:
-                    cypher_query = _generate_cypher_query(
-                        kwargs["user_query"], graph_schema
-                    )
-                    args[0].context.get("logger").info(
-                        f"Generated Cypher query: {cypher_query}"
-                    )
-                    cols.update({"cypher_query": cypher_query})
-                    kwargs["cypher_query"] = cypher_query
-
                 request = insert_update_request_handler(args[0], **cols)
+                kwargs["request_uuid"] = request.request_uuid
 
                 result = original_function(*args, **kwargs)
 
