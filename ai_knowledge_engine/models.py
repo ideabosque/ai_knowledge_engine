@@ -135,7 +135,7 @@ class RequestModel(BaseModel):
     document_source = UnicodeAttribute(hash_key=True)
     request_uuid = UnicodeAttribute(range_key=True)
     user_query = UnicodeAttribute()
-    generated_query = UnicodeAttribute(null=True)
+    cypher_query = UnicodeAttribute(null=True)
     is_similarity_search = BooleanAttribute(default=False)
     results = ListAttribute(of=MapAttribute, default=[])
     request_note = UnicodeAttribute(null=True)

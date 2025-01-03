@@ -573,8 +573,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "userQuery": """Which product has the highest discounted price in the "High" price range?""",
-                # "userQuery": """Find products with the same price range and rating group as "Daikin 1.5 Ton 5 Star Inverter Split AC (Copper, PM 2.5 Filter, 2022 Model, MTKM50U, White)".""",
+                # "userQuery": """Which product has the highest discounted price in the "High" price range?""",
+                "userQuery": """Find products with the same price range and rating group as "Daikin 1.5 Ton 5 Star Inverter Split AC (Copper, PM 2.5 Filter, 2022 Model, MTKM50U, White)".""",
                 # "userQuery": """Recommend products similar to "Daikin 1.5 Ton 5 Star Inverter Split AC (Copper, PM 2.5 Filter, 2022 Model, MTKM50U, White)".""",
                 "indexName": "product_idx",
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",

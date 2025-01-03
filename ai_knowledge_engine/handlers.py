@@ -4,6 +4,7 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
+import functools
 import logging
 import os
 import sys
@@ -1025,7 +1026,7 @@ def resolve_request_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> Requ
 def resolve_request_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
     document_source = kwargs.get("document_source")
     user_query = kwargs.get("user_query")
-    generated_query = kwargs.get("generated_query")
+    cypher_query = kwargs.get("cypher_query")
     is_similarity_search = kwargs.get("is_similarity_search")
 
     args = []
@@ -1038,8 +1039,8 @@ def resolve_request_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) ->
     the_filters = None  # We can add filters for the query.
     if user_query:
         the_filters &= RequestModel.user_query.contains(user_query)
-    if generated_query:
-        the_filters &= RequestModel.generated_query.contains(generated_query)
+    if cypher_query:
+        the_filters &= RequestModel.cypher_query.contains(cypher_query)
     if is_similarity_search:
         the_filters &= RequestModel.is_similarity_search == is_similarity_search
     if the_filters is not None:
@@ -1070,8 +1071,8 @@ def insert_update_request_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
             "created_at": pendulum.now("UTC"),
             "updated_at": pendulum.now("UTC"),
         }
-        if kwargs.get("generated_query"):
-            cols["generated_query"] = kwargs["generated_query"]
+        if kwargs.get("cypher_query"):
+            cols["cypher_query"] = kwargs["cypher_query"]
         if kwargs.get("is_similarity_search"):
             cols["is_similarity_search"] = kwargs["is_similarity_search"]
         if kwargs.get("results"):
@@ -1093,7 +1094,7 @@ def insert_update_request_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
 
     # Map of kwargs keys to RequestModel attributes
     field_map = {
-        "generated_query": RequestModel.generated_query,
+        "cypher_query": RequestModel.cypher_query,
         "is_similarity_search": RequestModel.is_similarity_search,
         "results": RequestModel.results,
         "request_note": RequestModel.request_note,
@@ -1283,13 +1284,10 @@ def _get_enabled_knowledge_graph_metadata(
     reraise=True,
 )
 def _query_graph(
-    logger: logging.Logger, user_query: str, offset: int, limit: int
+    logger: logging.Logger, cypher_query: str, offset: int, limit: int
 ) -> Tuple[int, List[Dict[str, Any]]]:
     """Executes a query on the graph database."""
     try:
-        cypher_query = _generate_cypher_query(user_query, graph_schema)
-        logger.info(f"Generated Cypher query: {cypher_query}")
-
         # Retrieve the total count and first batch of results
         return neo4j_connector.execute_cypher_query_with_pagination(
             cypher_query,
@@ -1342,7 +1340,8 @@ def _process_and_merge_results(
         offset = kwargs.get("offset", 0)
         limit = kwargs.get("limit", 100)
         k = kwargs.get("k", redis_index_config[index_name]["k"])
-        is_similarity_search = _is_similarity_search(user_query)
+        is_similarity_search = kwargs.get("is_similarity_search")
+        cypher_query = kwargs.get("cypher_query", None)
 
         if is_similarity_search:
             vector_results_total, vector_results = _query_vector(
@@ -1363,7 +1362,7 @@ def _process_and_merge_results(
 
         # Query functions
         graph_results_total, graph_results = _query_graph(
-            logger, user_query, offset, limit
+            logger, cypher_query, offset, limit
         )
 
         return graph_results_total, graph_results
@@ -1373,6 +1372,63 @@ def _process_and_merge_results(
         raise e
 
 
+def request_decorator() -> Callable:
+    def actual_decorator(original_function: Callable) -> Callable:
+        @functools.wraps(original_function)
+        def wrapper_function(*args: List, **kwargs: Dict[str, any]) -> Any:
+            try:
+                cols = {
+                    "document_source": kwargs["document_source"],
+                    "user_query": kwargs["user_query"],
+                    "updated_by": "system",
+                }
+                request = insert_update_request_handler(args[0], **cols)
+
+                is_similarity_search = _is_similarity_search(kwargs["user_query"])
+                kwargs["is_similarity_search"] = is_similarity_search
+                cols.update({"is_similarity_search": is_similarity_search})
+
+                if not is_similarity_search:
+                    cypher_query = _generate_cypher_query(
+                        kwargs["user_query"], graph_schema
+                    )
+                    args[0].context.get("logger").info(
+                        f"Generated Cypher query: {cypher_query}"
+                    )
+                    cols.update({"cypher_query": cypher_query})
+                    kwargs["cypher_query"] = cypher_query
+
+                request = insert_update_request_handler(args[0], **cols)
+
+                result = original_function(*args, **kwargs)
+
+                cols.update(
+                    {
+                        "request_uuid": request.request_uuid,
+                        "results": result.results,
+                    }
+                )
+                request = insert_update_request_handler(args[0], **cols)
+
+                return result
+            except Exception as e:
+                log = traceback.format_exc()
+                cols.update(
+                    {
+                        "request_uuid": request.request_uuid,
+                        "request_note": log,
+                    }
+                )
+                request = insert_update_request_handler(args[0], **cols)
+                args[0].context.get("logger").error(log)
+                raise e
+
+        return wrapper_function
+
+    return actual_decorator
+
+
+@request_decorator()
 def resolve_knowledge_rag_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> KnowledgeRagType:

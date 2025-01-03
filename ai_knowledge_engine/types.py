@@ -86,7 +86,7 @@ class RequestType(ObjectType):
     document_source = String()
     request_uuid = String()
     user_query = String()
-    generated_query = String()
+    cypher_query = String()
     is_similarity_search = Boolean()
     results = List(JSON)
     request_note = String()

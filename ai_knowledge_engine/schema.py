@@ -184,7 +184,7 @@ class Query(ObjectType):
         limit=Int(required=False),
         document_source=String(required=False),
         user_inquiry=String(required=False),
-        generated_query=String(required=False),
+        cypher_query=String(required=False),
         is_similarity_search=Boolean(required=False),
     )
 

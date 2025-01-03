@@ -293,7 +293,7 @@ class InsertUpdateRequest(Mutation):
         document_source = String(required=True)
         request_uuid = String(required=False)
         user_query = String(required=False)
-        generated_query = String(required=False)
+        cypher_query = String(required=False)
         is_similarity_search = Boolean(required=False)
         result = List(JSON, required=False)
         request_note = String(required=False)
