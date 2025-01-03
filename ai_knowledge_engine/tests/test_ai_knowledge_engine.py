@@ -111,7 +111,7 @@ c. Respond: Output `true` if the query matches the criteria for a similarity sea
 - Respond only with `true` or `false`.
 
 5. Handling Ambiguity
-- If the query lacks sufficient information to assess whether it is a similarity search, default to `false`.
+- If the query lacks sufficient information to assess whether it is a similarity search, default to `true`.
 
 6. Output Format
 - Return a single word: either `true` or `false`.
