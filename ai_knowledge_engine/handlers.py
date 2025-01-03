@@ -1157,7 +1157,7 @@ def _lookup_and_merge_results(
             f"MATCH (n)-[r]->(m) WHERE n.{merge_key} IN [{', '.join(transaction_ids)}] "
             f"RETURN {', '.join([f'n.{attr} AS {attr}' for attr in graph_attributes] + ['type(r) AS relationship_type', 'm.name AS related_entity'])}"
         )
-        logger.info(f"Generated Cypher query for bulk lookup: {cypher_query}")
+        # logger.info(f"Generated Cypher query for bulk lookup: {cypher_query}")
 
         # Execute the Cypher query
         _, graph_results = neo4j_connector.execute_cypher_query_with_pagination(
