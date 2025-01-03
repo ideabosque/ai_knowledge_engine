@@ -1222,11 +1222,17 @@ def _is_similarity_search(user_query: str) -> bool:
             },
             {
                 "role": "user",
-                "content": f"Is this query ({user_query}) a similarity search?",
+                "content": f"Is this query ({user_query}) a similarity search based on schema: {graph_schema}?",
             },
         ],
     )
     is_similarity_search = response.choices[0].message.content
+
+    if is_similarity_search.startswith(
+        "The query is ambiguous and does not provide enough information to determine if it pertains to a similarity search. Please provide additional context or clarify your intent."
+    ):
+        raise InsufficientDetailsError(is_similarity_search)
+
     if is_similarity_search == "true":
         return True
     return False

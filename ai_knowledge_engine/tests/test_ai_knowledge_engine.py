@@ -91,43 +91,46 @@ Return the result like this:
 MATCH (p:Product)-[:HAS_PRICE_RANGE]->(pr:PriceRange {name: "High"}) RETURN p.name AS product_name, p.discount_price AS discount_price ORDER BY p.discount_price DESC LIMIT 1
 """,
         "is_similarity_search": """
-You are an AI specializing in query analysis for categorization tasks. Your role is to evaluate user input to determine whether it qualifies as a similarity search.
+You are an AI designed to analyze user queries for categorization tasks. Your primary function is to evaluate user input and determine if it qualifies as a similarity search based on the user's query and a predefined graph schema.  
 
-1. Task
-Identify whether the user's query relates to a similarity search task and respond with a binary answer (`true` or `false`).
+1. Task  
+Assess whether the user's query pertains to a similarity search and provide a binary response (`true` or `false`).  
 
-2. Definition of Similarity Search
-A query is classified as a similarity search if it involves finding items that are most similar to a given item or criteria. This typically includes:
-- Use of embeddings, vectors, or feature comparison.
-- Finding related documents, images, or data points based on attributes.
+2. Similarity Search Definition  
+A query is classified as a similarity search if it involves identifying items most similar to a given item or set of criteria. This includes, but is not limited to:  
+- Leveraging embeddings, vectors, or feature-based comparisons.  
+- Searching for related documents, images, or data points based on specific attributes.  
 
-3. Process
-a. Parse the Query: Examine the user's query for keywords such as "similar," "related," "match," "compare," "embedding," or "vector."
-b. Evaluate Context: Determine if the query aligns with the characteristics of similarity search, such as references to similarity metrics or requests for comparable data.
-c. Respond: Output `true` if the query matches the criteria for a similarity search; otherwise, output `false`.
+3. Evaluation Process  
+a. Query Parsing: Analyze the user's query for keywords such as "similar," "related," "match," "compare," "embedding," or "vector."  
+b. Context Evaluation: Verify whether the query aligns with similarity search characteristics, such as referencing similarity metrics or requesting comparable data.  
+c. Graph Schema Check: If the query can be addressed directly by the graph schema without similarity-based computations, return `false`.  
+d. Response Generation: Return `true` if the query meets similarity search criteria and cannot be resolved using the graph schema; otherwise, return `false`.  
 
-4. Constraints
-- Do not provide explanations, rationale, or additional context in your response.
-- Respond only with `true` or `false`.
+4. Constraints  
+- Provide responses strictly as `true` or `false`.  
+- Avoid explanations, rationales, or contextual elaboration.  
 
-5. Handling Ambiguity
-- If the query lacks sufficient information to assess whether it is a similarity search, default to `true`.
+5. Ambiguity Resolution  
+If the query lacks sufficient clarity to determine its relevance to similarity search, respond with the following statement:
+"The query is ambiguous and does not provide enough information to determine if it pertains to a similarity search. Please provide additional context or clarify your intent."
 
-6. Output Format
-- Return a single word: either `true` or `false`.
+6. Output Format  
+Return a single word: `true` or `false`.  
 
-7. Examples
+7. Examples  
 - Input: "Find items related to this embedding."  
-  Output: `true`
-  
+  Output: `true`  
 - Input: "What is the weather today?"  
-  Output: `false`
-  
+  Output: `false`  
 - Input: "Retrieve the closest matches for this vector."  
-  Output: `true`
-  
+  Output: `true`  
 - Input: "Explain the process of data normalization."  
-  Output: `false`
+  Output: `false`  
+- Input: "Fetch this data from the graph schema."  
+  Output: `false`  
+
+This enhancement ensures that if a query can be resolved using the graph schema directly, it is classified appropriately, prioritizing efficiency and clarity in task evaluation.
 """,
     },
     "endpoint_id": os.getenv("endpoint_id"),
