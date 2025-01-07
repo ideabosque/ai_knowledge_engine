@@ -236,7 +236,6 @@ def resolve_document_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
     document_types = kwargs.get("document_types")
     document_title = kwargs.get("document_title")
     document_content = kwargs.get("document_content")
-    statuses = kwargs.get("statuses")
 
     args = []
     inquiry_funct = DocumentModel.scan
