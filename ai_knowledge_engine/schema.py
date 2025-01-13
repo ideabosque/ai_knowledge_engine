@@ -33,6 +33,7 @@ from .mutations import (
     InsertUpdateDocumentProcessTask,
     InsertUpdateKnowledgeGraphMetadata,
     InsertUpdateRequest,
+    LoadDocument
 )
 from .queries import (
     resolve_data_source,
@@ -294,3 +295,4 @@ class Mutations(ObjectType):
     delete_data_source = DeleteDataSource.Field()
     insert_update_request = InsertUpdateRequest.Field()
     delete_request = DeleteRequest.Field()
+    load_document = LoadDocument.Field()

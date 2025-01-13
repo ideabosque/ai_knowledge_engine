@@ -16,20 +16,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 setting = {
-    "region_name": os.getenv("region_name"),
-    "aws_access_key_id": os.getenv("aws_access_key_id"),
-    "aws_secret_access_key": os.getenv("aws_secret_access_key"),
-    "openai_api_key": os.getenv("openai_api_key"),
-    "openai_model": os.getenv("openai_model"),
+    "region_name": os.getenv("REGION_NAME"),
+    "aws_access_key_id": os.getenv("AWS_ACCESS_KEY_ID"),
+    "aws_secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY"),
+    "openai_base_url": os.getenv("OPENAI_BASE_URL"),
+    "openai_api_key": os.getenv("OPENAI_API_KEY"),
+    "openai_model": os.getenv("OPENAI_MODEL"),
     "functs_on_local": {
         "ai_knowledge_graphql": {
             "module_name": "ai_knowledge_engine",
             "class_name": "AIKnowledgeEngine",
         },
     },
-    "adaptor_bucket_name": os.getenv("adaptor_bucket_name"),
-    "adaptor_zip_path": os.getenv("adaptor_zip_path"),
-    "adaptor_extract_path": os.getenv("adaptor_extract_path"),
+    "adaptor_bucket_name": os.getenv("ADAPTOR_BUCKET_NAME"),
+    "adaptor_zip_path": os.getenv("ADAPTOR_ZIP_PATH"),
+    "adaptor_extract_path": os.getenv("ADAPTOR_EXTRACT_PATH"),
     "REDIS_HOST": os.getenv("REDIS_HOST"),
     "REDIS_PORT": os.getenv("REDIS_PORT"),
     "REDIS_PASSWORD": os.getenv("REDIS_PASSWORD"),
@@ -53,10 +54,10 @@ setting = {
             "k": 100,
         }
     },
-    "neo4j_uri": os.getenv("neo4j_uri"),
-    "neo4j_username": os.getenv("neo4j_username"),
-    "neo4j_password": os.getenv("neo4j_password"),
-    "neo4j_database": os.getenv("neo4j_database"),
+    "neo4j_uri": os.getenv("NEO4J_URI"),
+    "neo4j_username": os.getenv("NEO4J_USERNAME"),
+    "neo4j_password": os.getenv("NEO4J_PASSWORD"),
+    "neo4j_database": os.getenv("NEO4J_DATABASE"),
     "system_contents": {
         "generate_cypher_query": """
 You are an AI assistant specialized in generating Cypher queries based on user input and a predefined graph schema. Your focus is to deliver accurate, schema-compliant, and user-specific queries efficiently.
@@ -133,15 +134,16 @@ Return a single word: `true` or `false`.
 This enhancement ensures that if a query can be resolved using the graph schema directly, it is classified appropriately, prioritizing efficiency and clarity in task evaluation.
 """,
     },
-    "endpoint_id": os.getenv("endpoint_id"),
-    "test_mode": os.getenv("test_mode"),
+    "endpoint_id": os.getenv("ENDPOINT_ID"),
+    "test_mode": os.getenv("TEST_MODE"),
+    "swap_bucket_name": os.getenv("SWAP_BUCKET_NAME")
 }
 
-sys.path.insert(0, "C:/Users/bibo7/gitrepo/silvaengine/ai_knowledge_engine")
-sys.path.insert(1, "C:/Users/bibo7/gitrepo/silvaengine/silvaengine_dynamodb_base")
-sys.path.insert(2, "C:/Users/bibo7/gitrepo/silvaengine/silvaengine_utility")
-sys.path.insert(3, "C:/Users/bibo7/gitrepo/silvaengine/neo4j_graph_connector")
-sys.path.insert(4, "C:/Users/bibo7/gitrepo/silvaengine/redis_stack_connector")
+sys.path.insert(0, "/Users/Workstation/Workspace/ideabosque/ai_knowledge_engine")
+sys.path.insert(1, "/Users/Workstation/Workspace/ideabosque/silvaengine_dynamodb_base")
+sys.path.insert(2, "/Users/Workstation/Workspace/ideabosque/silvaengine_utility")
+sys.path.insert(3, "/Users/Workstation/Workspace/ideabosque/neo4j_graph_connector")
+sys.path.insert(4, "/Users/Workstation/Workspace/ideabosque/redis_stack_connector")
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger()
@@ -155,13 +157,14 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         self.ai_knowledge_engine = AIKnowledgeEngine(logger, **setting)
         endpoint_id = setting.get("endpoint_id")
         test_mode = setting.get("test_mode")
-        self.schema = Utility.fetch_graphql_schema(
-            logger,
-            endpoint_id,
-            "ai_knowledge_graphql",
-            setting=setting,
-            test_mode=test_mode,
-        )
+        # self.schema = Utility.fetch_graphql_schema(
+        #     logger,
+        #     endpoint_id,
+        #     "ai_knowledge_graphql",
+        #     setting=setting,
+        #     test_mode=test_mode,
+        # )
+        print(setting)
         logger.info("Initiate AIKnowledgeEngineTest ...")
 
     def tearDown(self):
@@ -569,7 +572,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_knowledge_rag(self):
         query = Utility.generate_graphql_operation("knowledgeRag", "Query", self.schema)
         logger.info(f"Query: {query}")
@@ -607,6 +610,36 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
+    # @unittest.skip("demonstrating skipping")
+    def test_load_document(self):
+        try:
+            payload = {
+                "query": """mutation loadDocument(
+                    $documentSource: String!
+                    $documentType: String!
+                    $fileObjectKey: String!
+                    $chunkSize: Int
+                ) {
+                    loadDocument (
+                        documentSource: $documentSource
+                        documentType: $documentType
+                        fileObjectKey: $fileObjectKey
+                        chunkSize: $chunkSize
+                    ) {
+                        ok
+                    }
+                }""",
+                "variables": {
+                    "documentSource": "load_test",
+                    "documentType": "md",
+                    "fileObjectKey": "xx.md",
+                    "chunkSize": 4096,
+                },
+            }
+            response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
+            logger.info(response)
+        except Exception as e:
+            print(f"Error reading file: {e}")
 
 if __name__ == "__main__":
     unittest.main()

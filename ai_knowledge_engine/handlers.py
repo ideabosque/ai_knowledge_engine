@@ -10,6 +10,8 @@ import os
 import sys
 import traceback
 import zipfile
+import uuid
+import json, re
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import boto3
@@ -83,14 +85,16 @@ adaptor_bucket_name = None
 adaptor_zip_path = None
 adaptor_extract_path = None
 aws_s3 = None
+aws_s3_bucket = None
+embedding_model = None
 
 
 def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
     try:
-        global aws_s3
+        global aws_s3, aws_s3_bucket
         global openai_client, openai_model
         global neo4j_connector, neo4j_database, graph_schema, system_contents
-        global redis_stack_connector, redis_index_config
+        global redis_stack_connector, redis_index_config, embedding_model
         global adaptor_bucket_name, adaptor_zip_path, adaptor_extract_path
 
         _initialize_aws_services(setting)
@@ -106,7 +110,8 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
 
 
 def _initialize_aws_services(setting: Dict[str, Any]) -> None:
-    global aws_s3
+    global aws_s3, aws_s3_bucket
+
     if all(
         setting.get(k)
         for k in ["region_name", "aws_access_key_id", "aws_secret_access_key"]
@@ -119,6 +124,7 @@ def _initialize_aws_services(setting: Dict[str, Any]) -> None:
     else:
         aws_credentials = {}
 
+    aws_s3_bucket = setting.get("swap_bucket_name")
     aws_s3 = boto3.client("s3", **aws_credentials)
 
 
@@ -126,7 +132,13 @@ def _initialize_openai_client(setting: Dict[str, Any]) -> None:
     global openai_client, openai_model
 
     if "openai_api_key" in setting:
-        openai_client = OpenAI(api_key=setting["openai_api_key"])
+        kwargs = None
+
+        if setting.get("openai_base_url") is not None:
+            kwargs = {"base_url": setting["openai_base_url"]}
+
+
+        openai_client = OpenAI(api_key=setting["openai_api_key"], **kwargs)
     if "openai_model" in setting:
         openai_model = setting["openai_model"]
 
@@ -155,7 +167,7 @@ def _initialize_neo4j(logger: logging.Logger, setting: Dict[str, Any]) -> None:
 
 
 def _initialize_redis_stack(logger: logging.Logger, setting: Dict[str, Any]) -> None:
-    global redis_stack_connector, redis_index_config
+    global redis_stack_connector, redis_index_config, embedding_model
     if (
         "openai_api_key" in setting
         and "REDIS_HOST" in setting
@@ -173,6 +185,7 @@ def _initialize_redis_stack(logger: logging.Logger, setting: Dict[str, Any]) -> 
                 "EMBEDDING_MODEL": setting["EMBEDDING_MODEL"],
             },
         )
+        embedding_model = setting["EMBEDDING_MODEL"]
     if "redis_index_config" in setting:
         redis_index_config = setting["redis_index_config"]
 
@@ -1534,4 +1547,109 @@ def resolve_data_view_handler(
     except Exception as e:
         log = traceback.format_exc()
         info.context.get("logger").error(log)
+        raise e
+
+def load_document(
+    info: ResolveInfo,
+    document_source: str,
+    document_type: str,
+    file_object_key: str,
+    chunk_size: int = 1000
+) -> None:
+    """Process document through the knowledge extraction pipeline"""
+    try:        
+        # 1. Get extraction rules
+        # rules = _get_enabled_knowledge_graph_metadata(document_source)
+        
+        document_uuid=str(uuid.uuid4())
+        document_title=f"Processed Document {pendulum.now().to_datetime_string()}"
+        response = aws_s3.get_object(Bucket=aws_s3_bucket, Key=file_object_key)
+        streaming_body = response['Body']
+        i = 0
+
+        # 2. Create and chunk document
+        for slice in iter(lambda: streaming_body.read(chunk_size), b''):
+            chunk = DocumentModel(
+                document_source=document_source,
+                document_uuid=f"{document_uuid}_chunk_{i}",
+                document_external_id=f"{document_uuid}_chunk_{i}",
+                document_type=document_type,
+                document_title=f"{document_title} Chunk {i}",
+                document_content=slice.decode('utf-8') ,
+                chunk_index=i,
+                created_at=pendulum.now("UTC"),
+                updated_at=pendulum.now("UTC"),
+                updated_by="load"
+            )
+            i += 1
+
+            # 3. Organize and analyze document
+            analysis = openai_client.chat.completions.create(
+                model=openai_model,
+                messages=[
+                    {"role": "system", "content": "Analyze and summarize this text"},
+                    {"role": "user", "content": chunk.document_content}
+                ]
+            )
+            
+            # 4. Create embeddings
+            embeddings = openai_client.embeddings.create(
+                input=[analysis.choices[0].message.content],
+                model=embedding_model
+            )
+            chunk.title_embedding = embeddings.data[0].embedding
+            chunk.content_embedding = embeddings.data[0].embedding
+            chunk.save()
+
+            redis_stack_connector.index_document(
+                prefix=f"{document_type}:{document_source}",
+                key="merge_key",
+                doc={
+                    "merge_key": chunk.document_uuid,
+                    "content_vector": chunk.content_embedding,
+                },
+            )
+
+            extraction = openai_client.chat.completions.create(
+                model=openai_model,
+                messages=[
+                    {"role": "system", "content": f"Extract all the knowledge points from the document, associate these knowledge points in the form of a mind map, and finally ensure that only one Neo4j Cypher insertion statement based on the mind map relationships is generated and returned."},
+                    {"role": "user", "content": analysis.choices[0].message.content}
+                ]
+            )
+
+            # 5. Store extracted data
+            match = re.search(r'```cypher\n(.*?)```', extraction.choices[0].message.content, re.DOTALL)
+
+            if match:
+                with neo4j_connector.driver.session(database=neo4j_database) as session:
+                    # TODO: Record history
+                    print(
+                        "\n\n\n******************************\n", 
+                        match.group(1), 
+                        "\n******************************\n\n\n",
+                    )
+                    result = session.run(match.group(1))
+                    continue
+                
+
+            extracted_data = json.loads(extraction.choices[0].message.content.strip("```json").strip("```"))
+            
+            if type(extracted_data) is list:
+                with neo4j_connector.driver.session(database=neo4j_database) as session:
+                    for  v in extracted_data:
+                        stmt = []
+
+                        for k, v in v.items():
+                            stmt.append(f"{k}: '{v}'")
+
+                        # TODO: Record history
+                        print(
+                            "\n\n\n******************************\n", 
+                            f"CREATE (t:{document_type} {{{', '.join(stmt)}}})", 
+                            "\n******************************\n\n\n",)
+                        result = session.run(f"CREATE (t:{document_type} {{{', '.join(stmt)}}})")
+
+    except Exception as e:
+        print(f"Error in document pipeline: {traceback.format_exc()}")
         raise e
