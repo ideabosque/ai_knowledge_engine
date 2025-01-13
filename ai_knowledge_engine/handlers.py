@@ -249,7 +249,6 @@ def resolve_document_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
     document_types = kwargs.get("document_types")
     document_title = kwargs.get("document_title")
     document_content = kwargs.get("document_content")
-    statuses = kwargs.get("statuses")
 
     args = []
     inquiry_funct = DocumentModel.scan
@@ -269,8 +268,6 @@ def resolve_document_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
         the_filters &= DocumentModel.document_title.contains(document_title)
     if document_content:
         the_filters &= DocumentModel.document_content.contains(document_content)
-    if statuses:
-        the_filters &= DocumentModel.status.is_in(*statuses)
 
     if the_filters is not None:
         args.append(the_filters)
