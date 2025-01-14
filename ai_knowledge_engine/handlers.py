@@ -1551,25 +1551,37 @@ def load_document(
     document_source: str,
     document_type: str,
     file_object_key: str,
-    chunk_size: int = 1000
+    chunk_size: int = 4096
 ) -> None:
     """Process document through the knowledge extraction pipeline"""
     try:        
         # 1. Get extraction rules
         # rules = _get_enabled_knowledge_graph_metadata(document_source)
-        
+        scheme = neo4j_connector.get_graph_schema(database=neo4j_database)
+        redis_index_name = f"{document_type}:{document_source}"
         document_uuid=str(uuid.uuid4())
         document_title=f"Processed Document {pendulum.now().to_datetime_string()}"
         response = aws_s3.get_object(Bucket=aws_s3_bucket, Key=file_object_key)
         streaming_body = response['Body']
         i = 0
 
+        # 1.1. Create redis index
+        redis_stack_connector.create_redis_index(
+            index_name=redis_index_name,
+            fields={
+                "id": "TEXT",
+                "content_vector": "VECTOR",
+                "content": "TEXT"
+            },
+            prefix="",
+        )
+
         # 2. Create and chunk document
         for slice in iter(lambda: streaming_body.read(chunk_size), b''):
             chunk = DocumentModel(
                 document_source=document_source,
                 document_uuid=f"{document_uuid}_chunk_{i}",
-                document_external_id=f"{document_uuid}_chunk_{i}",
+                document_external_id=f"{document_uuid}",
                 document_type=document_type,
                 document_title=f"{document_title} Chunk {i}",
                 document_content=slice.decode('utf-8') ,
@@ -1599,18 +1611,20 @@ def load_document(
             chunk.save()
 
             redis_stack_connector.index_document(
-                prefix=f"{document_type}:{document_source}",
-                key="merge_key",
+                prefix=redis_index_name,
+                key="id",
                 doc={
-                    "merge_key": chunk.document_uuid,
+                    "id": chunk.document_uuid,
                     "content_vector": chunk.content_embedding,
+                    "content": analysis.choices[0].message.content,
                 },
             )
 
             extraction = openai_client.chat.completions.create(
                 model=openai_model,
                 messages=[
-                    {"role": "system", "content": f"Extract all the knowledge points from the document, associate these knowledge points in the form of a mind map, and finally ensure that only one Neo4j Cypher insertion statement based on the mind map relationships is generated and returned."},
+                    # {"role": "system", "content": f"Extract all keywords or knowledge points from the document, organize them into a mind map by establishing associations between these keywords or knowledge points, and generate a single Neo4j Cypher insertion statement based on the mind map relationships. Ensure that each node in the Cypher statement includes the property foreignKey with a value of {chunk.document_uuid}, and return the final statement."},
+                    {"role": "system", "content": f"Please refer to the provided scheme to extract the corresponding field information and relationships, and generate a single Neo4j Cypher insertion statement according to the constraints in the scheme. Ensure that each node in the Cypher statement includes the property foreignKey with a value of {chunk.document_uuid}, and return the final statement. Scheme strucature:{scheme}"},
                     {"role": "user", "content": analysis.choices[0].message.content}
                 ]
             )

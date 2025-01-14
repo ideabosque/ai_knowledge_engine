@@ -157,13 +157,13 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         self.ai_knowledge_engine = AIKnowledgeEngine(logger, **setting)
         endpoint_id = setting.get("endpoint_id")
         test_mode = setting.get("test_mode")
-        # self.schema = Utility.fetch_graphql_schema(
-        #     logger,
-        #     endpoint_id,
-        #     "ai_knowledge_graphql",
-        #     setting=setting,
-        #     test_mode=test_mode,
-        # )
+        self.schema = Utility.fetch_graphql_schema(
+            logger,
+            endpoint_id,
+            "ai_knowledge_graphql",
+            setting=setting,
+            test_mode=test_mode,
+        )
         print(setting)
         logger.info("Initiate AIKnowledgeEngineTest ...")
 
