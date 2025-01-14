@@ -137,7 +137,7 @@ class RequestModel(BaseModel):
     user_query = UnicodeAttribute()
     cypher_query = UnicodeAttribute(null=True)
     is_similarity_search = BooleanAttribute(default=False)
-    results = ListAttribute(of=MapAttribute, default=None)
+    results = ListAttribute(of=MapAttribute, default=[])
     request_note = UnicodeAttribute(null=True)
     created_at = UTCDateTimeAttribute()
     updated_by = UnicodeAttribute()

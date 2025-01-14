@@ -141,14 +141,14 @@ This enhancement ensures that if a query can be resolved using the graph schema 
     },
     "endpoint_id": os.getenv("ENDPOINT_ID"),
     "test_mode": os.getenv("TEST_MODE"),
-    "swap_bucket_name": os.getenv("SWAP_BUCKET_NAME")
+    "swap_bucket_name": os.getenv("SWAP_BUCKET_NAME"),
 }
 
-sys.path.insert(0, "/Users/Workstation/Workspace/ideabosque/ai_knowledge_engine")
-sys.path.insert(1, "/Users/Workstation/Workspace/ideabosque/silvaengine_dynamodb_base")
-sys.path.insert(2, "/Users/Workstation/Workspace/ideabosque/silvaengine_utility")
-sys.path.insert(3, "/Users/Workstation/Workspace/ideabosque/neo4j_graph_connector")
-sys.path.insert(4, "/Users/Workstation/Workspace/ideabosque/redis_stack_connector")
+sys.path.insert(0, f"{os.getenv('base_dir')}/ai_knowledge_engine")
+sys.path.insert(1, f"{os.getenv('base_dir')}/silvaengine_dynamodb_base")
+sys.path.insert(2, f"{os.getenv('base_dir')}/silvaengine_utility")
+sys.path.insert(3, f"{os.getenv('base_dir')}/neo4j_graph_connector")
+sys.path.insert(4, f"{os.getenv('base_dir')}/redis_stack_connector")
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger()
@@ -577,7 +577,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_graphql_knowledge_rag(self):
         query = Utility.generate_graphql_operation("knowledgeRag", "Query", self.schema)
         logger.info(f"Query: {query}")
@@ -617,7 +617,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_load_document(self):
         try:
             payload = {
@@ -647,6 +647,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             logger.info(response)
         except Exception as e:
             print(f"Error reading file: {e}")
+
 
 if __name__ == "__main__":
     unittest.main()

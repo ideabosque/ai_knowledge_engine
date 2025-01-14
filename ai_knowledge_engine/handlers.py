@@ -5,13 +5,14 @@ from __future__ import print_function
 __author__ = "bibow"
 
 import functools
+import json
 import logging
 import os
+import re
 import sys
 import traceback
-import zipfile
 import uuid
-import json, re
+import zipfile
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import boto3
@@ -132,13 +133,12 @@ def _initialize_openai_client(setting: Dict[str, Any]) -> None:
     global openai_client, openai_model
 
     if "openai_api_key" in setting:
-        kwargs = None
+        openai_setting = {"api_key": setting["openai_api_key"]}
 
-        if setting.get("openai_base_url") is not None:
-            kwargs = {"base_url": setting["openai_base_url"]}
+        if "openai_base_url" in setting:
+            openai_setting.update({"base_url": setting["openai_base_url"]})
 
-
-        openai_client = OpenAI(api_key=setting["openai_api_key"], **kwargs)
+        openai_client = OpenAI(**openai_setting)
     if "openai_model" in setting:
         openai_model = setting["openai_model"]
 
@@ -1547,49 +1547,46 @@ def resolve_data_view_handler(
         info.context.get("logger").error(log)
         raise e
 
+
 def load_document(
     info: ResolveInfo,
     document_source: str,
     document_type: str,
     file_object_key: str,
-    chunk_size: int = 4096
+    chunk_size: int = 4096,
 ) -> None:
     """Process document through the knowledge extraction pipeline"""
-    try:        
+    try:
         # 1. Get extraction rules
         # rules = _get_enabled_knowledge_graph_metadata(document_source)
         scheme = neo4j_connector.get_graph_schema(database=neo4j_database)
         redis_index_name = f"{document_type}:{document_source}"
-        document_uuid=str(uuid.uuid4())
-        document_title=f"Processed Document {pendulum.now().to_datetime_string()}"
+        document_uuid = str(uuid.uuid4())
+        document_title = f"Processed Document {pendulum.now().to_datetime_string()}"
         response = aws_s3.get_object(Bucket=aws_s3_bucket, Key=file_object_key)
-        streaming_body = response['Body']
+        streaming_body = response["Body"]
         i = 0
 
         # 1.1. Create redis index
         redis_stack_connector.create_redis_index(
             index_name=redis_index_name,
-            fields={
-                "id": "TEXT",
-                "content_vector": "VECTOR",
-                "content": "TEXT"
-            },
+            fields={"id": "TEXT", "content_vector": "VECTOR", "content": "TEXT"},
             prefix="",
         )
 
         # 2. Create and chunk document
-        for slice in iter(lambda: streaming_body.read(chunk_size), b''):
+        for slice in iter(lambda: streaming_body.read(chunk_size), b""):
             chunk = DocumentModel(
                 document_source=document_source,
                 document_uuid=f"{document_uuid}_chunk_{i}",
                 document_external_id=f"{document_uuid}",
                 document_type=document_type,
                 document_title=f"{document_title} Chunk {i}",
-                document_content=slice.decode('utf-8') ,
+                document_content=slice.decode("utf-8"),
                 chunk_index=i,
                 created_at=pendulum.now("UTC"),
                 updated_at=pendulum.now("UTC"),
-                updated_by="load"
+                updated_by="load",
             )
             i += 1
 
@@ -1598,14 +1595,13 @@ def load_document(
                 model=openai_model,
                 messages=[
                     {"role": "system", "content": "Analyze and summarize this text"},
-                    {"role": "user", "content": chunk.document_content}
-                ]
+                    {"role": "user", "content": chunk.document_content},
+                ],
             )
-            
+
             # 4. Create embeddings
             embeddings = openai_client.embeddings.create(
-                input=[analysis.choices[0].message.content],
-                model=embedding_model
+                input=[analysis.choices[0].message.content], model=embedding_model
             )
             chunk.title_embedding = embeddings.data[0].embedding
             chunk.content_embedding = embeddings.data[0].embedding
@@ -1625,26 +1621,32 @@ def load_document(
                 model=openai_model,
                 messages=[
                     # {"role": "system", "content": f"Extract all keywords or knowledge points from the document, organize them into a mind map by establishing associations between these keywords or knowledge points, and generate a single Neo4j Cypher insertion statement based on the mind map relationships. Ensure that each node in the Cypher statement includes the property foreignKey with a value of {chunk.document_uuid}, and return the final statement."},
-                    {"role": "system", "content": f"Please refer to the provided scheme to extract the corresponding field information and relationships, and generate a single Neo4j Cypher insertion statement according to the constraints in the scheme. Ensure that each node in the Cypher statement includes the property foreignKey with a value of {chunk.document_uuid}, and return the final statement. Scheme strucature:{scheme}"},
-                    {"role": "user", "content": analysis.choices[0].message.content}
-                ]
+                    {
+                        "role": "system",
+                        "content": f"Please refer to the provided scheme to extract the corresponding field information and relationships, and generate a single Neo4j Cypher insertion statement according to the constraints in the scheme. Ensure that each node in the Cypher statement includes the property foreignKey with a value of {chunk.document_uuid}, and return the final statement. Scheme strucature:{scheme}",
+                    },
+                    {"role": "user", "content": analysis.choices[0].message.content},
+                ],
             )
 
             # 5. Store extracted data
-            match = re.search(r'```cypher\n(.*?)```', extraction.choices[0].message.content, re.DOTALL)
+            match = re.search(
+                r"```cypher\n(.*?)```", extraction.choices[0].message.content, re.DOTALL
+            )
 
             if match:
                 with neo4j_connector.driver.session(database=neo4j_database) as session:
                     # TODO: Record history
                     session.run(match.group(1))
                     continue
-                
 
-            extracted_data = json.loads(extraction.choices[0].message.content.strip("```json").strip("```"))
-            
+            extracted_data = json.loads(
+                extraction.choices[0].message.content.strip("```json").strip("```")
+            )
+
             if type(extracted_data) is list:
                 with neo4j_connector.driver.session(database=neo4j_database) as session:
-                    for  v in extracted_data:
+                    for v in extracted_data:
                         stmt = []
 
                         for k, v in v.items():
