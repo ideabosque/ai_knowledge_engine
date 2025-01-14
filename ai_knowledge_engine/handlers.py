@@ -1149,25 +1149,27 @@ def _lookup_and_merge_results(
         List[Dict[str, Any]]: The merged results, combining vector and graph data.
     """
     try:
-        merge_key = merge_rule["merge_key"]
-        graph_attributes = merge_rule["attributes_to_include"]["graph"]
+        vector_merge_key = merge_rule["vector_merge_key"]
+        graph_merge_node = merge_rule["graph_merge_node"]
+        graph_merge_key = merge_rule["graph_merge_key"]
+        vector_attributes = merge_rule["vector_attributes_to_include"]
 
         # Extract transaction IDs from vector results for lookup
         transaction_ids = [
-            f"'{vector_item.get(merge_key)}'"
+            f"{vector_item.get(vector_merge_key)}"
             for vector_item in vector_results
-            if vector_item.get(merge_key)
+            if vector_item.get(vector_merge_key)
         ]
 
         if not transaction_ids:
             return []
 
-        # Construct the Cypher query for bulk graph lookup
-        cypher_query = (
-            f"MATCH (n)-[r]->(m) WHERE n.{merge_key} IN [{', '.join(transaction_ids)}] "
-            f"RETURN {', '.join([f'n.{attr} AS {attr}' for attr in graph_attributes] + ['type(r) AS relationship_type', 'm.name AS related_entity'])}"
+        cypher_query = _generate_cypher_query(
+            f"""Retrieve the node ({graph_merge_node}) associated with `{graph_merge_key}` within the specified `{transaction_ids}`. Return the node as `node`.""",
+            graph_schema,
         )
-        # logger.info(f"Generated Cypher query for bulk lookup: {cypher_query}")
+
+        logger.info(f"Generated Cypher query for bulk lookup: {cypher_query}")
 
         # Execute the Cypher query
         _, graph_results = neo4j_connector.execute_cypher_query_with_pagination(
@@ -1181,35 +1183,31 @@ def _lookup_and_merge_results(
         # Organize graph results into a lookup dictionary
         graph_lookup = {}
         for result in graph_results:
-            key = result[merge_key]
+            key = result["node"].get(
+                graph_merge_key
+            )  # Adjust based on how the node key is identified
             if key not in graph_lookup:
+                # Include all attributes from the node
                 graph_lookup[key] = {
-                    attr: result.get(attr) for attr in graph_attributes
+                    **result["node"],  # Unpack all attributes of the node
                 }
-                graph_lookup[key]["relationships"] = []
-            graph_lookup[key]["relationships"].append(
-                {
-                    "type": result.get("relationship_type"),
-                    "related_entity": result.get("related_entity"),
-                }
-            )
 
         # Merge vector results with corresponding graph data
         merged_results = []
         for vector_item in vector_results:
-            merged_item = {merge_key: vector_item.get(merge_key)}
+            merged_item = {vector_merge_key: vector_item.get(vector_merge_key)}
 
             # Add vector attributes to the merged result
             merged_item.update(
                 {
                     attr: vector_item.get(attr)
-                    for attr in merge_rule["attributes_to_include"]["vector"]
+                    for attr in vector_attributes
                     if attr in vector_item
                 }
             )
 
             # Add graph attributes if available
-            graph_data = graph_lookup.get(vector_item.get(merge_key), {})
+            graph_data = graph_lookup.get(vector_item.get(vector_merge_key), {})
             merged_item.update(graph_data)
 
             merged_results.append(merged_item)
@@ -1362,24 +1360,25 @@ def _process_and_merge_results(
     try:
         # Extract parameters from kwargs
         user_query = kwargs.get("user_query")
-        index_name = kwargs.get("index_name")
         document_source = kwargs.get("document_source")
         request_uuid = kwargs.get("request_uuid")
         hybrid_fields = kwargs.get("hybrid_fields", "*")
         offset = kwargs.get("offset", 0)
         limit = kwargs.get("limit", 100)
-        k = kwargs.get("k", redis_index_config[index_name]["k"])
         is_similarity_search = kwargs.get("is_similarity_search")
+
+        # Retrieve metadata and merge results
+        knowledge_graph_metadata = _get_enabled_knowledge_graph_metadata(
+            document_source
+        )
+        index_name = f"{knowledge_graph_metadata.document_type}:{knowledge_graph_metadata.document_source}"
+        k = kwargs.get("k", redis_index_config[index_name]["k"])
 
         if is_similarity_search:
             vector_results_total, vector_results = _query_vector(
                 logger, user_query, index_name, hybrid_fields, k, offset, limit
             )
 
-            # Retrieve metadata and merge results
-            knowledge_graph_metadata = _get_enabled_knowledge_graph_metadata(
-                document_source
-            )
             merged_results = _lookup_and_merge_results(
                 logger,
                 Utility.json_loads(Utility.json_dumps(vector_results)),
@@ -1412,8 +1411,10 @@ def request_decorator() -> Callable:
                 }
                 request = insert_update_request_handler(args[0], **cols)
 
-                is_similarity_search = _is_similarity_search(kwargs["user_query"])
-                kwargs["is_similarity_search"] = is_similarity_search
+                is_similarity_search = kwargs.get("is_similarity_search")
+                if is_similarity_search is None:
+                    is_similarity_search = _is_similarity_search(kwargs["user_query"])
+                    kwargs["is_similarity_search"] = is_similarity_search
                 cols.update({"is_similarity_search": is_similarity_search})
 
                 request = insert_update_request_handler(args[0], **cols)

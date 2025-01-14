@@ -52,7 +52,12 @@ setting = {
                 "vector_score",
             ],
             "k": 100,
-        }
+        },
+        "XXXXXXXXXXXXXXXXXXX:company_data": {
+            "k": "100",
+            "return_fields": ["id", "name", "detailed_description", "vector_score"],
+            "vector_field": "content_vector",
+        },
     },
     "neo4j_uri": os.getenv("NEO4J_URI"),
     "neo4j_username": os.getenv("NEO4J_USERNAME"),
@@ -580,10 +585,12 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             "query": query,
             "variables": {
                 # "userQuery": """Which product has the highest discounted price in the "High" price range?""",
-                "userQuery": """Find products with the same price range and rating group as "Daikin 1.5 Ton 5 Star Inverter Split AC (Copper, PM 2.5 Filter, 2022 Model, MTKM50U, White)".""",
+                # "userQuery": """Find products with the same price range and rating group as "Daikin 1.5 Ton 5 Star Inverter Split AC (Copper, PM 2.5 Filter, 2022 Model, MTKM50U, White)".""",
                 # "userQuery": """Recommend products similar to "Daikin 1.5 Ton 5 Star Inverter Split AC (Copper, PM 2.5 Filter, 2022 Model, MTKM50U, White)".""",
-                "indexName": "product_idx",
-                "documentSource": "XXXXXXXXXXXXXXXXXXX",
+                # "userQuery": """Get all lost opportunities with account detail handled by Moses Frase.""",
+                "userQuery": """Find companies similar to 'Zumgoity'.""",
+                "documentSource": "company_data",
+                # "isSimilaritySearch": False,
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)

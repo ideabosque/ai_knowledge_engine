@@ -192,8 +192,8 @@ class Query(ObjectType):
     knowledge_rag = Field(
         KnowledgeRagType,
         user_query=String(required=True),
-        index_name=String(required=False),
         document_source=String(required=False),
+        is_similarity_search=Boolean(required=False),
         hybrid_fields=List(String, required=False),
         offset=Int(required=False),
         limit=Int(required=False),
