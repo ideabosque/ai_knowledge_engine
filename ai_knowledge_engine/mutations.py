@@ -342,8 +342,7 @@ class LoadDocument(Mutation):
     @staticmethod
     def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "InsertUpdateRequest":
         try:
-            print(kwargs)
-            request = load_document(info, **kwargs)
+            load_document(info, **kwargs)
         except Exception as e:
             log = traceback.format_exc()
             info.context.get("logger").error(log)
