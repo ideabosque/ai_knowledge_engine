@@ -1417,7 +1417,6 @@ def request_decorator() -> Callable:
                     kwargs["is_similarity_search"] = is_similarity_search
                 cols.update({"is_similarity_search": is_similarity_search})
 
-                request = insert_update_request_handler(args[0], **cols)
                 kwargs["request_uuid"] = request.request_uuid
 
                 result = original_function(*args, **kwargs)
