@@ -1636,12 +1636,7 @@ def load_document(
             if match:
                 with neo4j_connector.driver.session(database=neo4j_database) as session:
                     # TODO: Record history
-                    print(
-                        "\n\n\n******************************\n", 
-                        match.group(1), 
-                        "\n******************************\n\n\n",
-                    )
-                    result = session.run(match.group(1))
+                    session.run(match.group(1))
                     continue
                 
 
@@ -1656,11 +1651,7 @@ def load_document(
                             stmt.append(f"{k}: '{v}'")
 
                         # TODO: Record history
-                        print(
-                            "\n\n\n******************************\n", 
-                            f"CREATE (t:{document_type} {{{', '.join(stmt)}}})", 
-                            "\n******************************\n\n\n",)
-                        result = session.run(f"CREATE (t:{document_type} {{{', '.join(stmt)}}})")
+                        session.run(f"CREATE (t:{document_type} {{{', '.join(stmt)}}})")
 
     except Exception as e:
         print(f"Error in document pipeline: {traceback.format_exc()}")
