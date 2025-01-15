@@ -1656,7 +1656,7 @@ def load_document(
                                     for k, v in e.get("properties").items():
                                         stmt.append(f"{k}: '{v}'")
 
-                                    stmt_chunks.append(f"({str(e.get("node_label")).strip()[0].lower()}{i}:{e.get("node_label")} {{{', '.join(stmt)}}})")
+                                    stmt_chunks.append(f"""({str(e.get("node_label")).strip()[0].lower()}{i}:{e.get("node_label")} {{{', '.join(stmt)}}})""")
                                 
                             query = "CREATE {};".format(",".join(stmt_chunks))
                                 
