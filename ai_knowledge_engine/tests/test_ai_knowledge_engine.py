@@ -146,10 +146,83 @@ Return a single word: `true` or `false`.
 
 This enhancement ensures that if a query can be resolved using the graph schema directly, it is classified appropriately, prioritizing efficiency and clarity in task evaluation.
 """,
+    "generate_extract_keywords": """
+1. Task
+Please refer to the provided scheme to extract the corresponding field information and relationships. 
+
+2. Scheme
+Scheme strucature:
+```scheme
+{scheme}
+```
+
+3. Constraints  
+- If the original document is structured data, it needs to be extracted by line or object-by-object traversal.
+- Match entities in the scheme after analyzing and understanding the source content, and extract values based on the attributes of the matched entities.
+- According to the relationship in the scheme, associate the extracted entities and generate the corresponding Neo4j Cypher insertion statement.
+
+4. Return
+Please the return the extracted data in the following format:
+```json
+[
+    {{
+        "node_label": "The type of entity in Scheme, which will be used for the node label of the neo4j graph database",
+        "properties": [
+            {{
+                "name": "The name of the entity in the hit scheme",
+                ... OTHER PROPERTIES OF THE ENTITY IN THE HIT SCHEME ...
+            }}
+        ],
+        "relationships": [
+            {{
+                "relationship_type": "The type of relationship in Scheme, which will be used for associate with other entities",
+                "target": "Associated with relationship_type Entity"
+            }}
+            ... OTHER RELATIONSHIPS ...
+        ],
+    }}
+    ... OTHER NODES ...
+]
+```
+"""
     },
     "endpoint_id": os.getenv("ENDPOINT_ID"),
     "test_mode": os.getenv("TEST_MODE"),
     "swap_bucket_name": os.getenv("SWAP_BUCKET_NAME"),
+    "default_scheme": {
+        "entities": {
+            "product": {
+                "attributes": [
+                    "product name",
+                    "sku"
+                ]
+            },
+            "customer": {
+                "attributes": [
+                    "customer name",
+                    "address",
+                    "email",
+                    "phone"
+                ]
+            },
+            "company": {
+                "attributes": [
+                    "company name",
+                    "location"
+                ]
+            },
+            "order": {
+                "attributes": [
+                    "company name",
+                    "location"
+                ]
+            }
+        },
+        "rules": [
+            "Entity `customer` is belong to entity `company`",
+            "Entity `customer` purchased entity `prodcut`",
+        ]
+    }
 }
 
 sys.path.insert(0, f"{os.getenv('base_dir')}/ai_knowledge_engine")
