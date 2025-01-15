@@ -167,12 +167,10 @@ Please the return the extracted data in the following format:
 [
     {{
         "node_label": "The type of entity in Scheme, which will be used for the node label of the neo4j graph database",
-        "properties": [
-            {{
-                "name": "The name of the entity in the hit scheme",
-                ... OTHER PROPERTIES OF THE ENTITY IN THE HIT SCHEME ...
-            }}
-        ],
+        "properties": {{
+            "name": "The name of the entity in the hit scheme",
+            ... OTHER PROPERTIES OF THE ENTITY IN THE HIT SCHEME ...
+        }},
         "relationships": [
             {{
                 "relationship_type": "The type of relationship in Scheme, which will be used for associate with other entities",
@@ -207,8 +205,15 @@ Please the return the extracted data in the following format:
             },
             "company": {
                 "attributes": [
-                    "company name",
-                    "location"
+                    "Account Name",
+                    "Sector",
+                    "Location",
+                    "Total Opportunities",
+                    "Total Revenue",
+                    "Average Revenue per Opportunity",
+                    "Engagement Level",
+                    "Key Insight",
+                    "Detailed Description",
                 ]
             },
             "order": {
@@ -658,7 +663,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_knowledge_rag(self):
         query = Utility.generate_graphql_operation("knowledgeRag", "Query", self.schema)
         logger.info(f"Query: {query}")
@@ -698,7 +703,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_load_document(self):
         try:
             payload = {
@@ -720,8 +725,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                 "variables": {
                     "documentSource": "load_test",
                     "documentType": "md",
-                    "fileObjectKey": "xx.md",
-                    "chunkSize": 4096,
+                    "fileObjectKey": "companys.json",
+                    "chunkSize": 1024*1024,
                 },
             }
             response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
