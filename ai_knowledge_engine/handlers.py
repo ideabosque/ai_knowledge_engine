@@ -13,6 +13,7 @@ import sys
 import traceback
 import uuid
 import zipfile
+import tiktoken
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import boto3
@@ -1560,6 +1561,7 @@ def load_document(
         # rules = _get_enabled_knowledge_graph_metadata(document_source)
         scheme = neo4j_connector.get_graph_schema(database=neo4j_database)
         redis_index_name = f"{document_type}:{document_source}"
+        formats = ["cypher", "json"]
         document_uuid = str(uuid.uuid4())
         document_title = f"Processed Document {pendulum.now().to_datetime_string()}"
         response = aws_s3.get_object(Bucket=aws_s3_bucket, Key=file_object_key)
@@ -1569,7 +1571,12 @@ def load_document(
         # 1.1. Create redis index
         redis_stack_connector.create_redis_index(
             index_name=redis_index_name,
-            fields={"id": "TEXT", "content_vector": "VECTOR", "content": "TEXT"},
+            fields={
+                "id": "TEXT",
+                "name": "TEXT",
+                "content_vector": "VECTOR",
+                "content": "TEXT"
+            },
             prefix="",
         )
 
@@ -1619,41 +1626,121 @@ def load_document(
             extraction = openai_client.chat.completions.create(
                 model=openai_model,
                 messages=[
-                    # {"role": "system", "content": f"Extract all keywords or knowledge points from the document, organize them into a mind map by establishing associations between these keywords or knowledge points, and generate a single Neo4j Cypher insertion statement based on the mind map relationships. Ensure that each node in the Cypher statement includes the property foreignKey with a value of {chunk.document_uuid}, and return the final statement."},
-                    {
-                        "role": "system",
-                        "content": f"Please refer to the provided scheme to extract the corresponding field information and relationships, and generate a single Neo4j Cypher insertion statement according to the constraints in the scheme. Ensure that each node in the Cypher statement includes the property foreignKey with a value of {chunk.document_uuid}, and return the final statement. Scheme strucature:{scheme}",
-                    },
-                    {"role": "user", "content": analysis.choices[0].message.content},
-                ],
+                    {"role": "system", "content": info.context.get("setting", {}).get("system_contents", {}).get("generate_extract_keywords","").format(**{"scheme": scheme})},
+                    {"role": "user", "content": chunk.document_content}
+                ]
             )
 
             # 5. Store extracted data
-            match = re.search(
-                r"```cypher\n(.*?)```", extraction.choices[0].message.content, re.DOTALL
-            )
+            for t in formats:
+                match = re.search(
+                    r'```{type}\n(.*?)```'.replace("{type}", t), 
+                    extraction.choices[0].message.content, 
+                    re.DOTALL,
+                )
 
-            if match:
-                with neo4j_connector.driver.session(database=neo4j_database) as session:
-                    # TODO: Record history
-                    session.run(match.group(1))
-                    continue
+                if match:
+                    with neo4j_connector.driver.session(database=neo4j_database) as session:
+                        query = ""
 
-            extracted_data = json.loads(
-                extraction.choices[0].message.content.strip("```json").strip("```")
-            )
+                        if t == "cypher":
+                            query = match.group(1)
+                        elif t == "json":
+                            extracted_data = json.loads(match.group(1))
+                            stmt_chunks = []
 
-            if type(extracted_data) is list:
-                with neo4j_connector.driver.session(database=neo4j_database) as session:
-                    for v in extracted_data:
-                        stmt = []
+                            for i, e in enumerate(extracted_data):
+                                if type(e.get("properties")) is dict:
+                                    stmt = []
 
-                        for k, v in v.items():
-                            stmt.append(f"{k}: '{v}'")
+                                    for k, v in e.get("properties").items():
+                                        stmt.append(f"{k}: '{v}'")
 
-                        # TODO: Record history
-                        session.run(f"CREATE (t:{document_type} {{{', '.join(stmt)}}})")
+                                    stmt_chunks.append(f"({str(e.get("node_label")).strip()[0].lower()}{i}:{e.get("node_label")} {{{', '.join(stmt)}}})")
+                                
+                            query = "CREATE {};".format(",".join(stmt_chunks))
+                                
+
+                        if len(query):
+                            # TODO: Record history
+                            print("\n\n\n########################\n", query,"\n\n\n\n\n\n\n\n\n\n")
+                            session.run(query)
+                    break
 
     except Exception as e:
         print(f"Error in document pipeline: {traceback.format_exc()}")
         raise e
+
+def split_file_into_chunks(bucket_name, object_key, max_tokens=4096, overlap_tokens=100):
+    """
+    Stream large documents from S3 and semantically chunk them to ensure that each chunk does not exceed max_tokens and maintains semantic integrity.
+    - bucket_name: S3 bucket name
+    - object_key: S3 Object key (file path)
+    - max_tokens: Maximum number of tokens per block
+    - overlap_tokens: Number of overlapping tokens between blocks (to avoid truncating context)
+    - output_file: Block result output file path (optional)
+    """
+    # Initialize the tokenizer
+    tokenizer = tiktoken.get_encoding("cl100k_base") 
+
+    # Get Object Stream from S3
+    response = aws_s3.get_object(Bucket=bucket_name, Key=object_key)
+    stream = response['Body']
+    buffer = ""
+
+    while True:
+        chunk = stream.read(1024 * 1024).decode('utf-8')
+
+        if not chunk:
+            break
+
+        buffer += chunk
+        
+        while True:
+            # Supports multiple separators
+            paragraphs = re.split(r'\n\n|\n\s*\n', buffer)
+
+            if len(paragraphs) == 1:
+                break
+
+            # Process each paragraph
+            for _, paragraph in enumerate(paragraphs[:-1]):
+                paragraph_tokens = len(tokenizer.encode(paragraph))
+
+                if paragraph_tokens > max_tokens:
+                    # If the paragraph is too long, divide it into sentences
+                    # Supports multiple sentence separators
+                    sentences = re.split(r'\.\s+|\n', paragraph) 
+                    current_chunk = ""
+
+                    for sentence in sentences:
+                        sentence_tokens = len(tokenizer.encode(sentence))
+
+                        if len(tokenizer.encode(current_chunk)) + sentence_tokens > max_tokens:
+                            if current_chunk:
+                                yield current_chunk
+                            current_chunk = sentence
+                        else:
+                            current_chunk += ". " + sentence if current_chunk else sentence
+                    if current_chunk:
+                        yield current_chunk
+                else:
+                    yield paragraph
+
+            # Keep unprocessed paragraphs
+            buffer = paragraphs[-1]
+
+    # Process the remaining text
+    if buffer:
+        yield buffer
+
+
+def process_file_chunk(info, chunk):
+    """
+    Functions that handle individual chunks
+    - chunk: chunked text
+    """
+
+    print("\n>>>>>>>>>>>>>>>>>>>>>>>\n", chunk, "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>\n\n\n")
+    
+    return {"chunk": chunk, "processed": True}
