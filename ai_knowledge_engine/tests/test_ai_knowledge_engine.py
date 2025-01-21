@@ -28,41 +28,59 @@ setting = {
             "class_name": "AIKnowledgeEngine",
         },
     },
-    "adaptor_bucket_name": os.getenv("ADAPTOR_BUCKET_NAME"),
-    "adaptor_zip_path": os.getenv("ADAPTOR_ZIP_PATH"),
-    "adaptor_extract_path": os.getenv("ADAPTOR_EXTRACT_PATH"),
-    "REDIS_HOST": os.getenv("REDIS_HOST"),
-    "REDIS_PORT": os.getenv("REDIS_PORT"),
-    "REDIS_PASSWORD": os.getenv("REDIS_PASSWORD"),
+    "module_bucket_name": os.getenv("module_bucket_name"),
+    "module_zip_path": os.getenv("module_zip_path"),
+    "module_extract_path": os.getenv("module_extract_path"),
     "EMBEDDING_MODEL": os.getenv("EMBEDDING_MODEL"),
-    "redis_index_config": {
-        "product_idx": {
-            "vector_field": "title_vector",
-            "return_fields": [
-                "id",
-                "name",
-                "main_category",
-                "sub_category",
-                "image",
-                "link",
-                "ratings",
-                "no_of_ratings",
-                "discount_price",
-                "actual_price",
-                "vector_score",
-            ],
-            "k": 100,
-        },
-        "XXXXXXXXXXXXXXXXXXX:company_data": {
-            "k": "100",
-            "return_fields": ["id", "name", "detailed_description", "vector_score"],
-            "vector_field": "content_vector",
+    "graph_db_connector_config": {
+        "module_name": "neo4j_graph_connector",
+        "class_name": "Neo4jConnector",
+        "setting": {
+            "neo4j_uri": os.getenv("NEO4J_URI"),
+            "neo4j_username": os.getenv("NEO4J_USERNAME"),
+            "neo4j_password": os.getenv("NEO4J_PASSWORD"),
+            "neo4j_database": os.getenv("NEO4J_DATABASE"),
         },
     },
-    "neo4j_uri": os.getenv("NEO4J_URI"),
-    "neo4j_username": os.getenv("NEO4J_USERNAME"),
-    "neo4j_password": os.getenv("NEO4J_PASSWORD"),
-    "neo4j_database": os.getenv("NEO4J_DATABASE"),
+    "vector_db_connector_config": {
+        "module_name": "redis_stack_connector",
+        "class_name": "RedisStackConnector",
+        "setting": {
+            "REDIS_HOST": os.getenv("REDIS_HOST"),
+            "REDIS_PORT": os.getenv("REDIS_PORT"),
+            "REDIS_PASSWORD": os.getenv("REDIS_PASSWORD"),
+            "redis_index_config": {
+                "product_idx": {
+                    "vector_field": "title_vector",
+                    "return_fields": [
+                        "id",
+                        "name",
+                        "main_category",
+                        "sub_category",
+                        "image",
+                        "link",
+                        "ratings",
+                        "no_of_ratings",
+                        "discount_price",
+                        "actual_price",
+                        "vector_score",
+                    ],
+                    "k": 100,
+                },
+                "XXXXXXXXXXXXXXXXXXX:company_data": {
+                    "k": "100",
+                    "return_fields": [
+                        "id",
+                        "name",
+                        "detailed_description",
+                        "vector_score",
+                    ],
+                    "vector_field": "content_vector",
+                },
+            },
+        },
+    },
+    ""
     "system_contents": {
         "generate_cypher_query": """
 You are an AI assistant specialized in generating Cypher queries based on user input and a predefined graph schema. Your focus is to deliver accurate, schema-compliant, and user-specific queries efficiently.
@@ -146,7 +164,7 @@ Return a single word: `true` or `false`.
 
 This enhancement ensures that if a query can be resolved using the graph schema directly, it is classified appropriately, prioritizing efficiency and clarity in task evaluation.
 """,
-    "generate_extract_keywords": """
+        "generate_extract_keywords": """
 1. Task
 Please refer to the provided scheme to extract the corresponding field information and relationships. 
 
@@ -182,27 +200,15 @@ Please the return the extracted data in the following format:
     ... OTHER NODES ...
 ]
 ```
-"""
+""",
     },
     "endpoint_id": os.getenv("ENDPOINT_ID"),
     "test_mode": os.getenv("TEST_MODE"),
     "swap_bucket_name": os.getenv("SWAP_BUCKET_NAME"),
     "default_scheme": {
         "entities": {
-            "product": {
-                "attributes": [
-                    "product name",
-                    "sku"
-                ]
-            },
-            "customer": {
-                "attributes": [
-                    "customer name",
-                    "address",
-                    "email",
-                    "phone"
-                ]
-            },
+            "product": {"attributes": ["product name", "sku"]},
+            "customer": {"attributes": ["customer name", "address", "email", "phone"]},
             "company": {
                 "attributes": [
                     "Account Name",
@@ -216,18 +222,13 @@ Please the return the extracted data in the following format:
                     "Detailed Description",
                 ]
             },
-            "order": {
-                "attributes": [
-                    "company name",
-                    "location"
-                ]
-            }
+            "order": {"attributes": ["company name", "location"]},
         },
         "rules": [
             "Entity `customer` is belong to entity `company`",
             "Entity `customer` purchased entity `prodcut`",
-        ]
-    }
+        ],
+    },
 }
 
 sys.path.insert(0, f"{os.getenv('base_dir')}/ai_knowledge_engine")
@@ -663,7 +664,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_graphql_knowledge_rag(self):
         query = Utility.generate_graphql_operation("knowledgeRag", "Query", self.schema)
         logger.info(f"Query: {query}")
@@ -703,7 +704,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_load_document(self):
         try:
             payload = {
@@ -726,7 +727,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                     "documentSource": "load_test",
                     "documentType": "md",
                     "fileObjectKey": "companys.json",
-                    "chunkSize": 1024*1024,
+                    "chunkSize": 1024 * 1024,
                 },
             }
             response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)

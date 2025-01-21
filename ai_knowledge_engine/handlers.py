@@ -13,11 +13,11 @@ import sys
 import traceback
 import uuid
 import zipfile
-import tiktoken
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import boto3
 import pendulum
+import tiktoken
 from graphene import ResolveInfo
 from openai import OpenAI
 from tenacity import (
@@ -27,8 +27,6 @@ from tenacity import (
     wait_exponential,
 )
 
-from neo4j_graph_connector import Neo4jConnector
-from redis_stack_connector import RedisStackConnector
 from silvaengine_dynamodb_base import (
     delete_decorator,
     insert_update_decorator,
@@ -77,15 +75,14 @@ class InsufficientDetailsError(Exception):
 
 openai_client = None
 openai_model = None
-neo4j_connector = None
-redis_stack_connector = None
+graph_db_connector = None
+vector_db_connector = None
 redis_index_config = None
-neo4j_database = None
 graph_schema = None
 system_contents = None
-adaptor_bucket_name = None
-adaptor_zip_path = None
-adaptor_extract_path = None
+module_bucket_name = None
+module_zip_path = None
+module_extract_path = None
 aws_s3 = None
 aws_s3_bucket = None
 embedding_model = None
@@ -93,22 +90,33 @@ embedding_model = None
 
 def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
     try:
+        global embedding_model, system_contents
+        global module_bucket_name, module_zip_path, module_extract_path
         global aws_s3, aws_s3_bucket
         global openai_client, openai_model
-        global neo4j_connector, neo4j_database, graph_schema, system_contents
-        global redis_stack_connector, redis_index_config, embedding_model
-        global adaptor_bucket_name, adaptor_zip_path, adaptor_extract_path
+        global graph_db_connector, graph_schema
+        global vector_db_connector, redis_index_config
 
+        _setup_parameters(setting)
+        _setup_function_paths(setting)
         _initialize_aws_services(setting)
         _initialize_openai_client(setting)
-        _initialize_neo4j(logger, setting)
-        _initialize_redis_stack(logger, setting)
-        _setup_function_paths(setting)
+        _initialize_graph_database(logger, setting)
+        _initialize_vector_database(logger, setting)
 
     except Exception as e:
         log = traceback.format_exc()
         logger.error(log)
         raise e
+
+
+def _setup_parameters(setting: Dict[str, Any]) -> None:
+    global embedding_model, system_contents
+
+    if "EMBEDDING_MODEL" in setting:
+        embedding_model = setting["EMBEDDING_MODEL"]
+    if "system_contents" in setting:
+        system_contents = setting["system_contents"]
 
 
 def _initialize_aws_services(setting: Dict[str, Any]) -> None:
@@ -144,60 +152,100 @@ def _initialize_openai_client(setting: Dict[str, Any]) -> None:
         openai_model = setting["openai_model"]
 
 
-def _initialize_neo4j(logger: logging.Logger, setting: Dict[str, Any]) -> None:
-    global neo4j_connector, neo4j_database, graph_schema, system_contents
-    if (
-        "neo4j_uri" in setting
-        and "neo4j_username" in setting
-        and "neo4j_password" in setting
-    ):
-        neo4j_connector = Neo4jConnector(
+def _initialize_graph_database(logger: logging.Logger, setting: Dict[str, Any]) -> None:
+    global graph_db_connector, graph_schema
+    if "graph_db_connector_config" in setting:
+        graph_db_connector = _get_class_object(
             logger,
-            **{
-                "neo4j_uri": setting["neo4j_uri"],
-                "neo4j_username": setting["neo4j_username"],
-                "neo4j_password": setting["neo4j_password"],
-            },
+            setting["graph_db_connector_config"]["module_name"],
+            setting["graph_db_connector_config"]["class_name"],
+            **setting["graph_db_connector_config"]["setting"],
         )
-    if "neo4j_database" in setting:
-        neo4j_database = setting["neo4j_database"]
-        graph_schema = neo4j_connector.get_graph_schema(database=neo4j_database)
-
-    if "system_contents" in setting:
-        system_contents = setting["system_contents"]
+        graph_schema = graph_db_connector.get_graph_schema()
 
 
-def _initialize_redis_stack(logger: logging.Logger, setting: Dict[str, Any]) -> None:
-    global redis_stack_connector, redis_index_config, embedding_model
-    if (
-        "openai_api_key" in setting
-        and "REDIS_HOST" in setting
-        and "REDIS_PORT" in setting
-        and "REDIS_PASSWORD" in setting
-        and "EMBEDDING_MODEL" in setting
-    ):
-        redis_stack_connector = RedisStackConnector(
+def _initialize_vector_database(
+    logger: logging.Logger, setting: Dict[str, Any]
+) -> None:
+    global vector_db_connector, redis_index_config
+    if "vector_db_connector_config" in setting:
+        vector_db_connector = _get_class_object(
             logger,
-            **{
-                "openai_api_key": setting["openai_api_key"],
-                "REDIS_HOST": setting["REDIS_HOST"],
-                "REDIS_PORT": setting["REDIS_PORT"],
-                "REDIS_PASSWORD": setting["REDIS_PASSWORD"],
-                "EMBEDDING_MODEL": setting["EMBEDDING_MODEL"],
-            },
+            setting["vector_db_connector_config"]["module_name"],
+            setting["vector_db_connector_config"]["class_name"],
+            **dict(
+                setting["vector_db_connector_config"]["setting"],
+                **{
+                    "openai_api_key": setting["openai_api_key"],
+                    "EMBEDDING_MODEL": embedding_model,
+                },
+            ),
         )
-        embedding_model = setting["EMBEDDING_MODEL"]
-    if "redis_index_config" in setting:
-        redis_index_config = setting["redis_index_config"]
 
 
 def _setup_function_paths(setting: Dict[str, Any]) -> None:
-    global adaptor_bucket_name, adaptor_zip_path, adaptor_extract_path
-    adaptor_bucket_name = setting.get("adaptor_bucket_name")
-    adaptor_zip_path = setting.get("adaptor_zip_path", "/tmp/adaptor_zips")
-    adaptor_extract_path = setting.get("adaptor_extract_path", "/tmp/adaptors")
-    os.makedirs(adaptor_zip_path, exist_ok=True)
-    os.makedirs(adaptor_extract_path, exist_ok=True)
+    global module_bucket_name, module_zip_path, module_extract_path
+    module_bucket_name = setting.get("module_bucket_name")
+    module_zip_path = setting.get("module_zip_path", "/tmp/adaptor_zips")
+    module_extract_path = setting.get("module_extract_path", "/tmp/adaptors")
+    os.makedirs(module_zip_path, exist_ok=True)
+    os.makedirs(module_extract_path, exist_ok=True)
+
+
+def _module_exists(logger: logging.Logger, module_name: str) -> bool:
+    """Check if the module exists in the specified path."""
+    module_dir = os.path.join(module_extract_path, module_name)
+    if os.path.exists(module_dir) and os.path.isdir(module_dir):
+        logger.info(f"Module {module_name} found in {module_extract_path}.")
+        return True
+    logger.info(f"Module {module_name} not found in {module_extract_path}.")
+    return False
+
+
+def _download_and_extract_module(logger: logging.Logger, module_name: str) -> None:
+    """Download and extract the module from S3 if not already extracted."""
+    key = f"{module_name}.zip"
+    zip_path = f"{module_zip_path}/{key}"
+
+    logger.info(f"Downloading module from S3: bucket={module_bucket_name}, key={key}")
+    aws_s3.download_file(module_bucket_name, key, zip_path)
+    logger.info(f"Downloaded {key} from S3 to {zip_path}")
+
+    # Extract the ZIP file
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        zip_ref.extractall(module_extract_path)
+    logger.info(f"Extracted module to {module_extract_path}")
+
+
+def _get_class_object(
+    logger: logging.Logger, module_name: str, class_name: str, **setting: Dict[str, Any]
+) -> Optional[Callable]:
+    try:
+        if not _module_exists(logger, module_name):
+            # Download and extract the module if it doesn't exist
+            _download_and_extract_module(logger, module_name)
+
+        # Add the extracted module to sys.path
+        module_path = f"{module_extract_path}/{module_name}"
+        if module_path not in sys.path:
+            sys.path.append(module_path)
+
+        _class = getattr(__import__(module_name), class_name)
+
+        return _class(
+            logger,
+            **Utility.json_loads(Utility.json_dumps(setting)),
+        )
+    except Exception as e:
+        log = traceback.format_exc()
+        logger.error(log)
+        raise e
+
+
+def _get_embedding(text: str) -> List[Dict[str, Any]]:
+    text = text.replace("\n", " ")
+    res = openai_client.embeddings.create(input=[text], model=embedding_model)
+    return res.data[0].embedding
 
 
 @retry(
@@ -1173,9 +1221,8 @@ def _lookup_and_merge_results(
         logger.info(f"Generated Cypher query for bulk lookup: {cypher_query}")
 
         # Execute the Cypher query
-        _, graph_results = neo4j_connector.execute_cypher_query_with_pagination(
+        _, graph_results = graph_db_connector.execute_cypher_query_with_pagination(
             cypher_query,
-            database=neo4j_database,
             limit=len(transaction_ids),
             skip=0,
             get_total=False,
@@ -1316,9 +1363,8 @@ def _query_graph(
         request.cypher_query = cypher_query
         request.save()
 
-        return neo4j_connector.execute_cypher_query_with_pagination(
+        return graph_db_connector.execute_cypher_query_with_pagination(
             cypher_query,
-            database=neo4j_database,
             limit=limit,
             skip=offset,
             get_total=True,
@@ -1329,26 +1375,12 @@ def _query_graph(
 
 
 def _query_vector(
-    logger: logging.Logger,
-    user_query: str,
-    index_name: str,
-    hybrid_fields: str,
-    k: int,
-    offset: int,
-    limit: int,
+    logger: logging.Logger, user_query: str, index_name: str, **kwargs: Dict[str, Any]
 ) -> Tuple[int, List[Dict[str, Any]]]:
     """Executes a query on the vector search engine."""
     try:
-        return redis_stack_connector.search_redis(
-            user_query,
-            index_name,
-            vector_field=redis_index_config[index_name]["vector_field"],
-            return_fields=redis_index_config[index_name]["return_fields"],
-            hybrid_fields=hybrid_fields,
-            k=k,
-            offset=offset,
-            limit=limit,
-        )
+        query_vector = _get_embedding(user_query)
+        return vector_db_connector.search_vector(query_vector, index_name, **kwargs)
     except Exception as e:
         logger.error(f"Vector query failed: {traceback.format_exc()}")
         raise e
@@ -1363,9 +1395,6 @@ def _process_and_merge_results(
         user_query = kwargs.get("user_query")
         document_source = kwargs.get("document_source")
         request_uuid = kwargs.get("request_uuid")
-        hybrid_fields = kwargs.get("hybrid_fields", "*")
-        offset = kwargs.get("offset", 0)
-        limit = kwargs.get("limit", 100)
         is_similarity_search = kwargs.get("is_similarity_search")
 
         # Retrieve metadata and merge results
@@ -1373,11 +1402,20 @@ def _process_and_merge_results(
             document_source
         )
         index_name = f"{knowledge_graph_metadata.document_type}:{knowledge_graph_metadata.document_source}"
-        k = kwargs.get("k", redis_index_config[index_name]["k"])
 
         if is_similarity_search:
+            _kwargs = {
+                "vector_field": kwargs.get("vector_field"),
+                "fields_to_return": kwargs.get("fields_to_return"),
+                **{
+                    key: kwargs[key]
+                    for key in ["filter_conditions", "top_k", "result_offset", "limit"]
+                    if key in kwargs
+                },
+            }
+
             vector_results_total, vector_results = _query_vector(
-                logger, user_query, index_name, hybrid_fields, k, offset, limit
+                logger, user_query, index_name, **_kwargs
             )
 
             merged_results = _lookup_and_merge_results(
@@ -1390,7 +1428,12 @@ def _process_and_merge_results(
 
         # Query functions
         graph_results_total, graph_results = _query_graph(
-            logger, document_source, request_uuid, user_query, offset, limit
+            logger,
+            document_source,
+            request_uuid,
+            user_query,
+            kwargs.get("offset", 0),
+            kwargs.get("limit", 100),
         )
 
         return graph_results_total, graph_results
@@ -1456,32 +1499,7 @@ def resolve_knowledge_rag_handler(
     return KnowledgeRagType(results=results, total=total)
 
 
-def module_exists(logger: logging.Logger, module_name: str) -> bool:
-    """Check if the module exists in the specified path."""
-    module_dir = os.path.join(adaptor_extract_path, module_name)
-    if os.path.exists(module_dir) and os.path.isdir(module_dir):
-        logger.info(f"Module {module_name} found in {adaptor_extract_path}.")
-        return True
-    logger.info(f"Module {module_name} not found in {adaptor_extract_path}.")
-    return False
-
-
-def download_and_extract_module(logger: logging.Logger, module_name: str) -> None:
-    """Download and extract the module from S3 if not already extracted."""
-    key = f"{module_name}.zip"
-    zip_path = f"{adaptor_zip_path}/{key}"
-
-    logger.info(f"Downloading module from S3: bucket={adaptor_bucket_name}, key={key}")
-    aws_s3.download_file(adaptor_bucket_name, key, zip_path)
-    logger.info(f"Downloaded {key} from S3 to {zip_path}")
-
-    # Extract the ZIP file
-    with zipfile.ZipFile(zip_path, "r") as zip_ref:
-        zip_ref.extractall(adaptor_extract_path)
-    logger.info(f"Extracted module to {adaptor_extract_path}")
-
-
-def get_data_adaptor_function(
+def _get_data_adaptor_function(
     logger: logging.Logger,
     data_source_type: str,
     data_source_name: str,
@@ -1489,19 +1507,6 @@ def get_data_adaptor_function(
 ) -> Optional[Callable]:
     try:
         data_source = get_data_source(data_source_type, data_source_name)
-
-        if not module_exists(logger, data_source.module_name):
-            # Download and extract the module if it doesn't exist
-            download_and_extract_module(logger, data_source.module_name)
-
-        # Add the extracted module to sys.path
-        module_path = f"{adaptor_extract_path}/{data_source.module_name}"
-        if module_path not in sys.path:
-            sys.path.append(module_path)
-
-        data_source_class = getattr(
-            __import__(data_source.module_name), data_source.class_name
-        )
 
         configuration = (
             data_source.configuration.__dict__["attribute_values"]
@@ -1511,11 +1516,12 @@ def get_data_adaptor_function(
 
         setting = dict(configuration, **{"data_views": data_source.data_views})
 
+        class_object = _get_class_object(
+            logger, data_source.module_name, data_source.class_name, **setting
+        )
+
         return getattr(
-            data_source_class(
-                logger,
-                **Utility.json_loads(Utility.json_dumps(setting)),
-            ),
+            class_object,
             function_name,
         )
     except Exception as e:
@@ -1533,7 +1539,7 @@ def resolve_data_view_handler(
     parameters = kwargs.get("parameters", {})
 
     try:
-        data_view_function = get_data_adaptor_function(
+        data_view_function = _get_data_adaptor_function(
             info.context.get("logger"),
             data_source_type,
             data_source_name,
@@ -1559,7 +1565,7 @@ def load_document(
     try:
         # 1. Get extraction rules
         # rules = _get_enabled_knowledge_graph_metadata(document_source)
-        scheme = neo4j_connector.get_graph_schema(database=neo4j_database)
+        scheme = graph_db_connector.get_graph_schema(database=neo4j_database)
         redis_index_name = f"{document_type}:{document_source}"
         formats = ["cypher", "json"]
         document_uuid = str(uuid.uuid4())
@@ -1569,13 +1575,13 @@ def load_document(
         i = 0
 
         # 1.1. Create redis index
-        redis_stack_connector.create_redis_index(
+        vector_db_connector.create_redis_index(
             index_name=redis_index_name,
             fields={
                 "id": "TEXT",
                 "name": "TEXT",
                 "content_vector": "VECTOR",
-                "content": "TEXT"
+                "content": "TEXT",
             },
             prefix="",
         )
@@ -1613,7 +1619,7 @@ def load_document(
             chunk.content_embedding = embeddings.data[0].embedding
             chunk.save()
 
-            redis_stack_connector.index_document(
+            vector_db_connector.index_document(
                 prefix=redis_index_name,
                 key="id",
                 doc={
@@ -1626,21 +1632,29 @@ def load_document(
             extraction = openai_client.chat.completions.create(
                 model=openai_model,
                 messages=[
-                    {"role": "system", "content": info.context.get("setting", {}).get("system_contents", {}).get("generate_extract_keywords","").format(**{"scheme": scheme})},
-                    {"role": "user", "content": chunk.document_content}
-                ]
+                    {
+                        "role": "system",
+                        "content": info.context.get("setting", {})
+                        .get("system_contents", {})
+                        .get("generate_extract_keywords", "")
+                        .format(**{"scheme": scheme}),
+                    },
+                    {"role": "user", "content": chunk.document_content},
+                ],
             )
 
             # 5. Store extracted data
             for t in formats:
                 match = re.search(
-                    r'```{type}\n(.*?)```'.replace("{type}", t), 
-                    extraction.choices[0].message.content, 
+                    r"```{type}\n(.*?)```".replace("{type}", t),
+                    extraction.choices[0].message.content,
                     re.DOTALL,
                 )
 
                 if match:
-                    with neo4j_connector.driver.session(database=neo4j_database) as session:
+                    with graph_db_connector.driver.session(
+                        database=neo4j_database
+                    ) as session:
                         query = ""
 
                         if t == "cypher":
@@ -1656,14 +1670,19 @@ def load_document(
                                     for k, v in e.get("properties").items():
                                         stmt.append(f"{k}: '{v}'")
 
-                                    stmt_chunks.append(f"({str(e.get("node_label")).strip()[0].lower()}{i}:{e.get("node_label")} {{{', '.join(stmt)}}})")
-                                
+                                    stmt_chunks.append(
+                                        f"({str(e.get("node_label")).strip()[0].lower()}{i}:{e.get("node_label")} {{{', '.join(stmt)}}})"
+                                    )
+
                             query = "CREATE {};".format(",".join(stmt_chunks))
-                                
 
                         if len(query):
                             # TODO: Record history
-                            print("\n\n\n########################\n", query,"\n\n\n\n\n\n\n\n\n\n")
+                            print(
+                                "\n\n\n########################\n",
+                                query,
+                                "\n\n\n\n\n\n\n\n\n\n",
+                            )
                             session.run(query)
                     break
 
@@ -1671,7 +1690,10 @@ def load_document(
         print(f"Error in document pipeline: {traceback.format_exc()}")
         raise e
 
-def split_file_into_chunks(bucket_name, object_key, max_tokens=4096, overlap_tokens=100):
+
+def split_file_into_chunks(
+    bucket_name, object_key, max_tokens=4096, overlap_tokens=100
+):
     """
     Stream large documents from S3 and semantically chunk them to ensure that each chunk does not exceed max_tokens and maintains semantic integrity.
     - bucket_name: S3 bucket name
@@ -1681,24 +1703,24 @@ def split_file_into_chunks(bucket_name, object_key, max_tokens=4096, overlap_tok
     - output_file: Block result output file path (optional)
     """
     # Initialize the tokenizer
-    tokenizer = tiktoken.get_encoding("cl100k_base") 
+    tokenizer = tiktoken.get_encoding("cl100k_base")
 
     # Get Object Stream from S3
     response = aws_s3.get_object(Bucket=bucket_name, Key=object_key)
-    stream = response['Body']
+    stream = response["Body"]
     buffer = ""
 
     while True:
-        chunk = stream.read(1024 * 1024).decode('utf-8')
+        chunk = stream.read(1024 * 1024).decode("utf-8")
 
         if not chunk:
             break
 
         buffer += chunk
-        
+
         while True:
             # Supports multiple separators
-            paragraphs = re.split(r'\n\n|\n\s*\n', buffer)
+            paragraphs = re.split(r"\n\n|\n\s*\n", buffer)
 
             if len(paragraphs) == 1:
                 break
@@ -1710,18 +1732,23 @@ def split_file_into_chunks(bucket_name, object_key, max_tokens=4096, overlap_tok
                 if paragraph_tokens > max_tokens:
                     # If the paragraph is too long, divide it into sentences
                     # Supports multiple sentence separators
-                    sentences = re.split(r'\.\s+|\n', paragraph) 
+                    sentences = re.split(r"\.\s+|\n", paragraph)
                     current_chunk = ""
 
                     for sentence in sentences:
                         sentence_tokens = len(tokenizer.encode(sentence))
 
-                        if len(tokenizer.encode(current_chunk)) + sentence_tokens > max_tokens:
+                        if (
+                            len(tokenizer.encode(current_chunk)) + sentence_tokens
+                            > max_tokens
+                        ):
                             if current_chunk:
                                 yield current_chunk
                             current_chunk = sentence
                         else:
-                            current_chunk += ". " + sentence if current_chunk else sentence
+                            current_chunk += (
+                                ". " + sentence if current_chunk else sentence
+                            )
                     if current_chunk:
                         yield current_chunk
                 else:
@@ -1742,5 +1769,5 @@ def process_file_chunk(info, chunk):
     """
 
     print("\n>>>>>>>>>>>>>>>>>>>>>>>\n", chunk, "\n>>>>>>>>>>>>>>>>>>>>>>>>>>>\n\n\n")
-    
+
     return {"chunk": chunk, "processed": True}
