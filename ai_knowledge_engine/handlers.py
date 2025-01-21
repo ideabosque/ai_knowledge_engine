@@ -1583,7 +1583,7 @@ def load_document(
                 "content_vector": "VECTOR",
                 "content": "TEXT",
             },
-            prefix="",
+            prefix=redis_index_name,
         )
 
         # 2. Create and chunk document
@@ -1619,6 +1619,7 @@ def load_document(
             chunk.content_embedding = embeddings.data[0].embedding
             chunk.save()
 
+<<<<<<< HEAD
             vector_db_connector.index_document(
                 prefix=redis_index_name,
                 key="id",
@@ -1629,6 +1630,8 @@ def load_document(
                 },
             )
 
+=======
+>>>>>>> 3fe34fb36529160da1d6632ec2e437055d60477a
             extraction = openai_client.chat.completions.create(
                 model=openai_model,
                 messages=[
@@ -1664,16 +1667,32 @@ def load_document(
                             stmt_chunks = []
 
                             for i, e in enumerate(extracted_data):
+                                redis_stack_connector.index_document(
+                                    prefix=redis_index_name,
+                                    key="id",
+                                    doc={
+                                        "id": chunk.document_uuid,
+                                        "content_vector": chunk.content_embedding,
+                                        "content": analysis.choices[0].message.content,
+                                        "name": e.get("properties", {}).get("name")
+                                    },
+                                )
+
                                 if type(e.get("properties")) is dict:
                                     stmt = []
 
                                     for k, v in e.get("properties").items():
                                         stmt.append(f"{k}: '{v}'")
 
+<<<<<<< HEAD
                                     stmt_chunks.append(
                                         f"({str(e.get("node_label")).strip()[0].lower()}{i}:{e.get("node_label")} {{{', '.join(stmt)}}})"
                                     )
 
+=======
+                                    stmt_chunks.append(f"""({str(e.get("node_label")).strip()[0].lower()}{i}:{e.get("node_label")} {{{', '.join(stmt)}}})""")
+                                
+>>>>>>> 3fe34fb36529160da1d6632ec2e437055d60477a
                             query = "CREATE {};".format(",".join(stmt_chunks))
 
                         if len(query):
