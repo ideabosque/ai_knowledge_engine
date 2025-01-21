@@ -90,10 +90,10 @@ embedding_model = None
 
 def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
     try:
-        global embedding_model, system_contents
+        global embedding_model, openai_model, system_contents
         global module_bucket_name, module_zip_path, module_extract_path
         global aws_s3, aws_s3_bucket
-        global openai_client, openai_model
+        global openai_client
         global graph_db_connector, graph_schema
         global vector_db_connector, redis_index_config
 
@@ -111,10 +111,12 @@ def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
 
 
 def _setup_parameters(setting: Dict[str, Any]) -> None:
-    global embedding_model, system_contents
+    global embedding_model, openai_model, system_contents
 
     if "EMBEDDING_MODEL" in setting:
         embedding_model = setting["EMBEDDING_MODEL"]
+    if "openai_model" in setting:
+        openai_model = setting["openai_model"]
     if "system_contents" in setting:
         system_contents = setting["system_contents"]
 
@@ -139,7 +141,7 @@ def _initialize_aws_services(setting: Dict[str, Any]) -> None:
 
 
 def _initialize_openai_client(setting: Dict[str, Any]) -> None:
-    global openai_client, openai_model
+    global openai_client
 
     if "openai_api_key" in setting:
         openai_setting = {"api_key": setting["openai_api_key"]}
@@ -148,8 +150,6 @@ def _initialize_openai_client(setting: Dict[str, Any]) -> None:
             openai_setting.update({"base_url": setting["openai_base_url"]})
 
         openai_client = OpenAI(**openai_setting)
-    if "openai_model" in setting:
-        openai_model = setting["openai_model"]
 
 
 def _initialize_graph_database(logger: logging.Logger, setting: Dict[str, Any]) -> None:
