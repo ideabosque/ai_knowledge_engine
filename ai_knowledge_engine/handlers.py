@@ -266,7 +266,7 @@ def get_document_count(document_source: str, document_uuid: str) -> int:
 def get_document_type(info: ResolveInfo, document: DocumentModel) -> DocumentType:
     try:
         document_source = _get_data_source(
-            document.document_type, document.document_type
+            document.endpoint_id, document.document_source
         )
     except Exception as e:
         log = traceback.format_exc()
@@ -274,7 +274,7 @@ def get_document_type(info: ResolveInfo, document: DocumentModel) -> DocumentTyp
         raise e
     document = document.__dict__["attribute_values"]
     document["document_source"] = document_source
-    document.pop("document_type")
+    document.pop("endpoint_id")
     return DocumentType(**Utility.json_loads(Utility.json_dumps(document)))
 
 
@@ -295,7 +295,7 @@ def resolve_document_handler(
 def resolve_document_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
     document_source = kwargs.get("document_source")
     document_external_id = kwargs.get("document_external_id")
-    document_types = kwargs.get("document_types")
+    endpoint_id = info.context["endpoint_id"]
     document_title = kwargs.get("document_title")
     document_content = kwargs.get("document_content")
 
@@ -311,8 +311,8 @@ def resolve_document_list_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
             count_funct = DocumentModel.document_external_id_index.count
 
     the_filters = None  # We can add filters for the query.
-    if document_types:
-        the_filters &= DocumentModel.document_type.is_in(*document_types)
+    if endpoint_id:
+        the_filters &= DocumentModel.endpoint_id == endpoint_id
     if document_title:
         the_filters &= DocumentModel.document_title.contains(document_title)
     if document_content:
@@ -343,7 +343,7 @@ def insert_update_document_handler(
     if kwargs.get("entity") is None:
         cols = {
             "document_external_id": kwargs["document_external_id"],
-            "document_type": kwargs["document_type"],
+            "endpoint_id": info.context["endpoint_id"],
             "document_title": kwargs["document_title"],
             "document_content": kwargs["document_content"],
             "updated_by": kwargs["updated_by"],
@@ -426,7 +426,7 @@ def _get_document_process_task(
     )
     return {
         "document_source": _get_data_source(
-            document_process_task.document_type, document_source
+            document_process_task.endpoint_id, document_source
         ),
         "process_task_uuid": document_process_task.process_task_uuid,
         "process_status": document_process_task.process_status,
@@ -442,7 +442,7 @@ def get_document_process_task_type(
 ) -> DocumentProcessTaskType:
     try:
         document_source = _get_data_source(
-            document_process_task.document_type,
+            document_process_task.endpoint_id,
             document_process_task.document_source,
         )
     except Exception as e:
@@ -451,7 +451,7 @@ def get_document_process_task_type(
         raise e
     document_process_task = document_process_task.__dict__["attribute_values"]
     document_process_task["document_source"] = document_source
-    document_process_task.pop("document_type")
+    document_process_task.pop("endpoint_id")
     return DocumentProcessTaskType(
         **Utility.json_loads(Utility.json_dumps(document_process_task))
     )
@@ -469,7 +469,7 @@ def resolve_document_process_task_handler(
 
 
 @resolve_list_decorator(
-    attributes_to_get=["document_type", "process_task_uuid"],
+    attributes_to_get=["document_source", "process_task_uuid"],
     list_type_class=DocumentProcessTaskListType,
     type_funct=get_document_process_task_type,
 )
@@ -477,7 +477,7 @@ def resolve_document_process_task_list_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> Any:
     document_source = kwargs.get("document_source")
-    document_types = kwargs.get("document_types")
+    endpoint_id = info.context["endpoint_id"]
     process_statuses = kwargs.get("process_statuses")
     args = []
     inquiry_funct = DocumentProcessTaskModel.scan
@@ -487,8 +487,8 @@ def resolve_document_process_task_list_handler(
         inquiry_funct = DocumentProcessTaskModel.query
 
     the_filters = None  # We can add filters for the query.
-    if document_types:
-        the_filters &= DocumentProcessTaskModel.document_type.is_in(*document_types)
+    if endpoint_id:
+        the_filters &= DocumentProcessTaskModel.endpoint_id == endpoint_id
     if process_statuses:
         the_filters &= DocumentProcessTaskModel.process_status.is_in(*process_statuses)
 
@@ -500,7 +500,7 @@ def resolve_document_process_task_list_handler(
 
 @insert_update_decorator(
     keys={
-        "hash_key": "document_type",
+        "hash_key": "document_source",
         "range_key": "process_task_uuid",
     },
     model_funct=get_document_process_task,
@@ -516,7 +516,7 @@ def insert_update_document_process_task_handler(
     process_task_uuid = kwargs.get("process_task_uuid")
     if kwargs.get("entity") is None:
         cols = {
-            "document_type": kwargs["document_type"],
+            "endpoint_id": info.context["endpoint_id"],
             "start_time": pendulum.now("UTC"),
         }
         if kwargs.get("process_status") is not None:
@@ -549,7 +549,7 @@ def insert_update_document_process_task_handler(
 
 @delete_decorator(
     keys={
-        "hash_key": "document_type",
+        "hash_key": "document_source",
         "range_key": "process_task_uuid",
     },
     model_funct=get_document_process_task,
@@ -755,13 +755,13 @@ def get_knowledge_graph_metadata_type(
 ) -> KnowledgeGraphMetadataType:
     try:
         document_source = _get_data_source(
-            knowledge_graph_metadata.document_type,
+            knowledge_graph_metadata.endpoint_id,
             knowledge_graph_metadata.document_source,
         )
         structured_data_views = [
             {
                 "data_source": _get_data_source(
-                    structured_data_view["data_source_type"],
+                    structured_data_view["endpoint_id"],
                     structured_data_view["data_source_name"],
                 ),
                 "data_view_name": structured_data_view["data_view_name"],
@@ -775,7 +775,7 @@ def get_knowledge_graph_metadata_type(
     knowledge_graph_metadata = knowledge_graph_metadata.__dict__["attribute_values"]
     knowledge_graph_metadata["document_source"] = document_source
     knowledge_graph_metadata["structured_data_views"] = structured_data_views
-    knowledge_graph_metadata.pop("document_type")
+    knowledge_graph_metadata.pop("endpoint_id")
     return KnowledgeGraphMetadataType(
         **Utility.json_loads(Utility.json_dumps(knowledge_graph_metadata))
     )
@@ -802,7 +802,7 @@ def resolve_knowledge_graph_metadata_list_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> Any:
     document_source = kwargs.get("document_source")
-    document_types = kwargs.get("document_types")
+    endpoint_id = info.context["endpoint_id"]
     status = kwargs.get("status")
     args = []
     inquiry_funct = KnowledgeGraphMetadataModel.scan
@@ -812,8 +812,8 @@ def resolve_knowledge_graph_metadata_list_handler(
         inquiry_funct = KnowledgeGraphMetadataModel.query
 
     the_filters = None  # We can add filters for the query.
-    if document_types:
-        the_filters &= KnowledgeGraphMetadataModel.document_type.is_in(*document_types)
+    if endpoint_id:
+        the_filters &= KnowledgeGraphMetadataModel.endpoint_id == endpoint_id
     if status:
         the_filters &= KnowledgeGraphMetadataModel.status == status
     if the_filters is not None:
@@ -840,7 +840,7 @@ def insert_update_knowledge_graph_metadata_handler(
     metadata_version_uuid = kwargs.get("metadata_version_uuid")
     if kwargs.get("entity") is None:
         cols = {
-            "document_type": kwargs["document_type"],
+            "endpoint_id": info.context["endpoint_id"],
             "updated_by": kwargs["updated_by"],
             "created_at": pendulum.now("UTC"),
             "updated_at": pendulum.now("UTC"),
@@ -910,21 +910,22 @@ def delete_knowledge_graph_metadata_handler(
     wait=wait_exponential(multiplier=1, min=4, max=10),
     reraise=True,
 )
-def get_data_source(data_source_type: str, data_source_name: str) -> DataSourceModel:
-    return DataSourceModel.get(data_source_type, data_source_name)
+def get_data_source(endpoint_id: str, data_source_name: str) -> DataSourceModel:
+    return DataSourceModel.get(endpoint_id, data_source_name)
 
 
-def get_data_source_count(data_source_type: str, data_source_name: str) -> int:
+def get_data_source_count(endpoint_id: str, data_source_name: str) -> int:
     return DataSourceModel.count(
-        data_source_type, DataSourceModel.data_source_name == data_source_name
+        endpoint_id, DataSourceModel.data_source_name == data_source_name
     )
 
 
-def _get_data_source(data_source_type: str, data_source_name: str) -> DataSourceModel:
-    data_source = get_data_source(data_source_type, data_source_name)
+def _get_data_source(endpoint_id: str, data_source_name: str) -> DataSourceModel:
+    data_source = get_data_source(endpoint_id, data_source_name)
     return {
-        "data_source_type": data_source_type,
+        "endpoint_id": endpoint_id,
         "data_source_name": data_source_name,
+        "data_source_type": data_source.data_source_type,
         "module_name": data_source.module_name,
         "class_name": data_source.class_name,
         "configuration": data_source.configuration,
@@ -944,28 +945,33 @@ def resolve_data_source_handler(
 ) -> DataSourceType:
     return get_data_source_type(
         info,
-        get_data_source(kwargs.get("data_source_type"), kwargs.get("data_source_name")),
+        get_data_source(info.context["endpoint_id"], kwargs.get("data_source_name")),
     )
 
 
 @monitor_decorator
 @resolve_list_decorator(
-    attributes_to_get=["data_source_type", "data_source_name"],
+    attributes_to_get=["data_source_type", "data_source_name", "data_source_type"],
     list_type_class=DataSourceListType,
     type_funct=get_data_source_type,
 )
 def resolve_data_source_list_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> Any:
+    endpoint_id = info.context["endpoint_id"]
     data_source_type = kwargs.get("data_source_type")
     module_name = kwargs.get("module_name")
     class_name = kwargs.get("class_name")
     args = []
     inquiry_funct = DataSourceModel.scan
     count_funct = DataSourceModel.count
-    if data_source_type:
-        args = [data_source_type, None]
+    if endpoint_id:
+        args = [endpoint_id, None]
         inquiry_funct = DataSourceModel.query
+        if data_source_type:
+            inquiry_funct = DataSourceModel.data_source_type_index.query
+            args[1] = DataSourceModel.data_source_type == data_source_type
+            count_funct = DataSourceModel.data_source_type_index.count
 
     the_filters = None  # We can add filters for the query.
     if module_name:
@@ -980,7 +986,7 @@ def resolve_data_source_list_handler(
 
 @insert_update_decorator(
     keys={
-        "hash_key": "data_source_type",
+        "hash_key": "endpoint_id",
         "range_key": "data_source_name",
     },
     range_key_required=True,
@@ -993,10 +999,11 @@ def resolve_data_source_list_handler(
 def insert_update_data_source_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> None:
-    data_source_type = kwargs.get("data_source_type")
+    endpoint_id = kwargs.get("endpoint_id")
     data_source_name = kwargs.get("data_source_name")
     if kwargs.get("entity") is None:
         cols = {
+            "data_source_type": kwargs["data_source_type"],
             "module_name": kwargs["module_name"],
             "class_name": kwargs["class_name"],
             "configuration": kwargs["configuration"],
@@ -1007,7 +1014,7 @@ def insert_update_data_source_handler(
         if kwargs.get("data_views") is not None:
             cols["data_views"] = kwargs["data_views"]
         DataSourceModel(
-            data_source_type,
+            endpoint_id,
             data_source_name,
             **cols,
         ).save()
@@ -1021,6 +1028,7 @@ def insert_update_data_source_handler(
 
     # Map of kwargs keys to DataSourceModel attributes
     field_map = {
+        "data_source_type": DataSourceModel.data_source_type,
         "module_name": DataSourceModel.module_name,
         "class_name": DataSourceModel.class_name,
         "configuration": DataSourceModel.configuration,
@@ -1039,7 +1047,7 @@ def insert_update_data_source_handler(
 
 @delete_decorator(
     keys={
-        "hash_key": "data_source_type",
+        "hash_key": "endpoint_id",
         "range_key": "data_source_name",
     },
     model_funct=get_data_source,
