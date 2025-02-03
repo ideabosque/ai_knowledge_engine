@@ -1409,7 +1409,7 @@ def _process_and_merge_results(
         knowledge_graph_metadata = _get_enabled_knowledge_graph_metadata(
             document_source
         )
-        index_name = f"{knowledge_graph_metadata.document_type}:{knowledge_graph_metadata.document_source}"
+        index_name = f"{knowledge_graph_metadata.endpoint_id}:{knowledge_graph_metadata.document_source}"
 
         if is_similarity_search:
             _kwargs = {

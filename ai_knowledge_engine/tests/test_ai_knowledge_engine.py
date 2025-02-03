@@ -67,7 +67,7 @@ setting = {
                     ],
                     "k": 100,
                 },
-                "XXXXXXXXXXXXXXXXXXX:company_data": {
+                "openai:company_data": {
                     "k": "100",
                     "return_fields": [
                         "id",
@@ -610,7 +610,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_insert_update_request(self):
         query = Utility.generate_graphql_operation(
             "insertUpdateRequest", "Mutation", self.schema
@@ -671,7 +671,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_graphql_knowledge_rag(self):
         query = Utility.generate_graphql_operation("knowledgeRag", "Query", self.schema)
         logger.info(f"Query: {query}")
