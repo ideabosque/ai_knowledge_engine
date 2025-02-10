@@ -741,6 +741,29 @@ def get_knowledge_graph_metadata(
     return KnowledgeGraphMetadataModel.get(document_source, metadata_version_uuid)
 
 
+@retry(
+    reraise=True,
+    wait=wait_exponential(multiplier=1, max=60),
+    stop=stop_after_attempt(5),
+)
+def _get_enabled_knowledge_graph_metadata(
+    document_source: str,
+) -> KnowledgeGraphMetadataModel:
+    try:
+        results = KnowledgeGraphMetadataModel.query(
+            document_source,
+            None,
+            filter_condition=(KnowledgeGraphMetadataModel.status == True),
+            scan_index_forward=False,
+            limit=1,
+        )
+        knowledge_graph_metadata = results.next()
+
+        return knowledge_graph_metadata
+    except StopIteration:
+        return None
+
+
 def get_knowledge_graph_metadata_count(
     document_source: str, metadata_version_uuid: str
 ) -> int:
@@ -784,11 +807,17 @@ def get_knowledge_graph_metadata_type(
 def resolve_knowledge_graph_metadata_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> KnowledgeGraphMetadataType:
+    if "metadata_version_uuid" in kwargs:
+        return get_knowledge_graph_metadata_type(
+            info,
+            get_knowledge_graph_metadata(
+                kwargs.get("document_source"), kwargs.get("metadata_version_uuid")
+            ),
+        )
+
     return get_knowledge_graph_metadata_type(
         info,
-        get_knowledge_graph_metadata(
-            kwargs.get("document_source"), kwargs.get("metadata_version_uuid")
-        ),
+        _get_enabled_knowledge_graph_metadata(kwargs.get("document_source")),
     )
 
 
@@ -822,6 +851,23 @@ def resolve_knowledge_graph_metadata_list_handler(
     return inquiry_funct, count_funct, args
 
 
+def _disable_knowledge_graph_metadatas(info: ResolveInfo, document_source: str) -> None:
+    try:
+        knowledge_graph_metadatas = KnowledgeGraphMetadataModel.query(
+            document_source,
+            None,
+            filter_condition=KnowledgeGraphMetadataModel.status == True,
+        )
+        for knowledge_graph_metadata in knowledge_graph_metadatas:
+            knowledge_graph_metadata.status = False
+            knowledge_graph_metadata.save()
+        return
+    except Exception as e:
+        log = traceback.format_exc()
+        info.context.get("logger").error(log)
+        raise e
+
+
 @insert_update_decorator(
     keys={
         "hash_key": "document_source",
@@ -841,22 +887,44 @@ def insert_update_knowledge_graph_metadata_handler(
     if kwargs.get("entity") is None:
         cols = {
             "endpoint_id": info.context["endpoint_id"],
+            "status": "active",
             "updated_by": kwargs["updated_by"],
             "created_at": pendulum.now("UTC"),
             "updated_at": pendulum.now("UTC"),
         }
-        if kwargs.get("structured_data_views") is not None:
-            cols["structured_data_views"] = kwargs["structured_data_views"]
-        if kwargs.get("structured_fields") is not None:
-            cols["structured_fields"] = kwargs["structured_fields"]
-        if kwargs.get("unstructured_attributes") is not None:
-            cols["unstructured_attributes"] = kwargs["unstructured_attributes"]
-        if kwargs.get("linkage_rules") is not None:
-            cols["linkage_rules"] = kwargs["linkage_rules"]
-        if kwargs.get("merge_rule") is not None:
-            cols["merge_rule"] = kwargs["merge_rule"]
-        if kwargs.get("status") is not None:
-            cols["status"] = kwargs["status"]
+
+        enabled_knowledge_graph_metadata = _get_enabled_knowledge_graph_metadata(
+            document_source
+        )
+        if enabled_knowledge_graph_metadata:
+            cols.update(
+                {
+                    k: v
+                    for k, v in enabled_knowledge_graph_metadata.__dict__[
+                        "attribute_values"
+                    ].items()
+                    if k
+                    not in [
+                        "endpoint_id",
+                        "status",
+                        "updated_by",
+                        "created_at",
+                        "updated_at",
+                    ]
+                }
+            )
+            _disable_knowledge_graph_metadatas(info, document_source)
+
+        for key in [
+            "structured_data_views",
+            "structured_fields",
+            "unstructured_attributes",
+            "linkage_rules",
+            "merge_rule",
+        ]:
+            if key in kwargs:
+                cols[key] = kwargs[key]
+
         KnowledgeGraphMetadataModel(
             document_source,
             metadata_version_uuid,
@@ -869,6 +937,11 @@ def insert_update_knowledge_graph_metadata_handler(
         KnowledgeGraphMetadataModel.updated_by.set(kwargs["updated_by"]),
         KnowledgeGraphMetadataModel.updated_at.set(pendulum.now("UTC")),
     ]
+
+    if "status" in kwargs and (
+        kwargs["status"] == True and knowledge_graph_metadata.status == False
+    ):
+        _disable_knowledge_graph_metadatas(info, document_source)
 
     # Map of kwargs keys to KnowledgeGraphMetadataModel attributes
     field_map = {
@@ -893,7 +966,7 @@ def insert_update_knowledge_graph_metadata_handler(
 
 @delete_decorator(
     keys={
-        "hash_key": "document_type",
+        "hash_key": "document_source",
         "range_key": "metadata_version_uuid",
     },
     model_funct=get_knowledge_graph_metadata,
@@ -901,7 +974,23 @@ def insert_update_knowledge_graph_metadata_handler(
 def delete_knowledge_graph_metadata_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> bool:
-    kwargs.get("entity").delete()
+    if kwargs["entity"].status:
+        results = KnowledgeGraphMetadataModel.query(
+            kwargs["document_source"],
+            None,
+            filter_condition=KnowledgeGraphMetadataModel.status == False,
+        )
+        knowledge_graph_metadatas = [result for result in results]
+        if len(knowledge_graph_metadatas) > 0:
+            knowledge_graph_metadatas = sorted(
+                knowledge_graph_metadatas, key=lambda x: x.updated_at, reverse=True
+            )
+            last_updated_record = knowledge_graph_metadatas[0]
+            last_updated_record.status = True
+            last_updated_record.save()
+
+    kwargs["entity"].delete()
+
     return True
 
 
@@ -1324,25 +1413,6 @@ def _generate_cypher_query(user_query: str, graph_schema: str) -> str:
         raise InsufficientDetailsError(cypher_query)
 
     return cypher_query
-
-
-# Retrieve the knowledge graph metadata.
-def _get_enabled_knowledge_graph_metadata(
-    document_source: str,
-) -> KnowledgeGraphMetadataModel:
-    count = KnowledgeGraphMetadataModel.count(
-        document_source,
-        None,
-        filter_condition=(KnowledgeGraphMetadataModel.status == True),
-    )
-    if count == 0:
-        raise Exception("No knowledge graph metadata found")
-    results = KnowledgeGraphMetadataModel.query(
-        document_source,
-        None,
-        filter_condition=(KnowledgeGraphMetadataModel.status == True),
-    )
-    return results.next()
 
 
 @retry(
