@@ -350,12 +350,9 @@ def insert_update_document_handler(
             "created_at": pendulum.now("UTC"),
             "updated_at": pendulum.now("UTC"),
         }
-        if kwargs.get("chunk_index"):
-            cols["chunk_index"] = kwargs["chunk_index"]
-        if kwargs.get("title_embedding") is not None:
-            cols["title_embedding"] = kwargs["title_embedding"]
-        if kwargs.get("content_embedding") is not None:
-            cols["content_embedding"] = kwargs["content_embedding"]
+        for key in ["chunk_index", "title_embedding", "content_embedding"]:
+            if key in kwargs:
+                cols[key] = kwargs[key]
         DocumentModel(
             document_source,
             document_uuid,
@@ -519,7 +516,7 @@ def insert_update_document_process_task_handler(
             "endpoint_id": info.context["endpoint_id"],
             "start_time": pendulum.now("UTC"),
         }
-        if kwargs.get("process_status") is not None:
+        if "process_status" in kwargs:
             cols["process_status"] = kwargs["process_status"]
         DocumentProcessTaskModel(document_source, process_task_uuid, **cols).save()
         return
@@ -682,10 +679,13 @@ def insert_update_document_process_entity_handler(
             "created_at": pendulum.now("UTC"),
             "updated_at": pendulum.now("UTC"),
         }
-        if kwargs.get("logs") is not None:
-            cols["logs"] = kwargs["logs"]
-        if kwargs.get("status") is not None:
-            cols["status"] = kwargs["status"]
+        for key in [
+            "logs",
+            "status",
+        ]:
+            if key in kwargs:
+                cols[key] = kwargs[key]
+
         DocumentProcessEntityModel(
             process_task_uuid, document_entity_uuid, **cols
         ).save()
@@ -1100,7 +1100,7 @@ def insert_update_data_source_handler(
             "created_at": pendulum.now("UTC"),
             "updated_at": pendulum.now("UTC"),
         }
-        if kwargs.get("data_views") is not None:
+        if "data_views" in kwargs:
             cols["data_views"] = kwargs["data_views"]
         DataSourceModel(
             endpoint_id,
@@ -1227,14 +1227,9 @@ def insert_update_request_handler(info: ResolveInfo, **kwargs: Dict[str, Any]) -
             "created_at": pendulum.now("UTC"),
             "updated_at": pendulum.now("UTC"),
         }
-        if kwargs.get("cypher_query"):
-            cols["cypher_query"] = kwargs["cypher_query"]
-        if kwargs.get("is_similarity_search"):
-            cols["is_similarity_search"] = kwargs["is_similarity_search"]
-        if kwargs.get("results"):
-            cols["results"] = kwargs["results"]
-        if kwargs.get("request_note"):
-            cols["request_note"] = kwargs["request_note"]
+        for key in ["cypher_query", "is_similarity_search", "results", "request_note"]:
+            if key in kwargs:
+                cols[key] = kwargs[key]
         RequestModel(
             document_source,
             request_uuid,

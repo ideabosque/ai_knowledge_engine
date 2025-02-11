@@ -314,7 +314,7 @@ class DeleteRequest(Mutation):
     ok = Boolean()
 
     class Arguments:
-        data_source_name = String(required=True)
+        document_source = String(required=True)
         request_uuid = String(required=True)
 
     @staticmethod
