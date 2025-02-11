@@ -67,7 +67,7 @@ setting = {
                     ],
                     "k": 100,
                 },
-                "XXXXXXXXXXXXXXXXXXX:company_data": {
+                "openai:company_data": {
                     "k": "100",
                     "return_fields": [
                         "id",
@@ -136,7 +136,16 @@ A query is classified as a similarity search if it involves identifying items mo
 3. Evaluation Process  
 a. Query Parsing: Analyze the user's query for keywords such as "similar," "related," "match," "compare," "embedding," or "vector."  
 b. Context Evaluation: Verify whether the query aligns with similarity search characteristics, such as referencing similarity metrics or requesting comparable data.  
-c. Graph Schema Check: If the query can be addressed directly by the graph schema without similarity-based computations, return `false`.  
+c. Graph Schema Check: If the query can be addressed directly by the graph schema without similarity-based computations, return false. The following scenarios illustrate cases where Graph RAG is better suited than Vector Search. In such cases, Graph RAG should handle the query, and the system must return false as similarity-based computations are unnecessary:
+- Complex Relationship Queries:
+  Question: "What are the direct and indirect connections between Person A and Person B within a social network?"
+  Explanation: Graph RAG can traverse the graph to uncover all possible paths and relationships between nodes, providing a structured and authoritative view that Vector Search lacks due to its focus on similarity rather than explicit relationships.
+- Hierarchical Data Queries:
+  Question: "What is the organizational hierarchy from the CEO down to the entry-level employees in this company?"
+  Explanation: Graph RAG excels at mapping hierarchical structures by identifying parent-child relationships and organizational levels, whereas Vector Search is optimized for identifying similarities rather than navigating structured hierarchies.
+- Contextual Path Queries:
+  Question: "What are the steps involved in the supply chain from raw material procurement to the final product delivery?"
+  Explanation: Graph RAG is capable of tracing specific paths and dependencies within a supply chain graph, providing a comprehensive step-by-step breakdown. In contrast, Vector Search lacks the ability to understand and process sequential steps in a structured process.
 d. Response Generation: Return `true` if the query meets similarity search criteria and cannot be resolved using the graph schema; otherwise, return `false`.  
 
 4. Constraints  
@@ -283,9 +292,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             "query": query,
             "variables": {
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
-                "documentUuid": "17576803334570840559",
+                # "documentUuid": "18153728364751229423",
                 "documentExternalId": "XXXXXXXXXXXXXXXXXXX",
-                "documentType": "XXXXXXXXXXXXXXXXXXX",
                 "documentTitle": "XXXXXXXXXXXXXXXXXXX",
                 "documentContent": "XXXXXXXXXXXXXXXXXXX",
                 "updatedBy": "XXXXXXXXXXXXXXXXXXX",
@@ -304,7 +312,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             "query": query,
             "variables": {
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
-                "documentUuid": "8073934999525134831",
+                "documentUuid": "7825045519416431087",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -318,7 +326,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             "query": query,
             "variables": {
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
-                "documentUuid": "8073934999525134831",
+                "documentUuid": "14919712776599638511",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -348,8 +356,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             "query": query,
             "variables": {
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
-                "processTaskUuid": "3749750466939458031",
-                "documentType": "XXXXXXXXXXXXXXXXXXX",
+                # "processTaskUuid": "5480720187243237871",
                 "entities": [],
                 "startTime": "2024-12-24T05:30:08.827734+0000",
                 "updatedBy": "XXXXXXXXXXXXXXXXXXX",
@@ -367,8 +374,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "documentType": "XXXXXXXXXXXXXXXXXXX",
-                "processTaskUuid": "6153210523639681519",
+                "documentSource": "XXXXXXXXXXXXXXXXXXX",
+                "processTaskUuid": "12927086442199388655",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -384,7 +391,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             "query": query,
             "variables": {
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
-                "processTaskUuid": "3749750466939458031",
+                "processTaskUuid": "8234229927039275503",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -414,8 +421,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "processTaskUuid": "3749750466939458031",
-                "documentEntityUuid": "3779819455720853999",
+                "processTaskUuid": "5480720187243237871",
+                # "documentEntityUuid": "3779819455720853999",
                 "documentExternalId": "XXXXXXXXXXXXXXXXXXX",
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
                 "documentVersion": "XXXXXXXXXXXXXXXXXXX",
@@ -434,8 +441,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "processTaskUuid": "XXXXXXXXXXXXXXXXXXX",
-                "documentEntityUuid": "2207217888910709231",
+                "processTaskUuid": "5480720187243237871",
+                "documentEntityUuid": "5787719111019729391",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -450,8 +457,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "processTaskUuid": "3749750466939458031",
-                "documentEntityUuid": "3779819455720853999",
+                "processTaskUuid": "5480720187243237871",
+                "documentEntityUuid": "1783770419515560431",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -466,7 +473,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "processTaskUuid": "3749750466939458031",
+                "processTaskUuid": "5480720187243237871",
                 "documentExternalId": "XXXXXXXXXXXXXXXXXXX",
             },
         }
@@ -483,8 +490,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             "query": query,
             "variables": {
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
-                "metadataVersionUuid": "8049749214099083759",
-                "documentType": "XXXXXXXXXXXXXXXXXXX",
+                # "metadataVersionUuid": "16622104501141246447",
+                "structuredDataViews": [],
                 "updatedBy": "XXXXXXXXXXXXXXXXXXX",
             },
         }
@@ -500,8 +507,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "documentType": "XXXXXXXXXXXXXXXXXXX",
-                "metadataVersionUuid": "16934475745462194671",
+                "documentSource": "XXXXXXXXXXXXXXXXXXX",
+                "metadataVersionUuid": "7472154973263434223",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -517,7 +524,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             "query": query,
             "variables": {
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
-                "metadataVersionUuid": "2146816827525173743",
+                "metadataVersionUuid": "17589703106240385519",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -532,7 +539,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "documentType": "XXXXXXXXXXXXXXXXXXX",
+                "documentSource": "XXXXXXXXXXXXXXXXXXX",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -547,8 +554,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "dataSourceType": "XXXXXXXXXXXXXXXXXXX",
                 "dataSourceName": "XXXXXXXXXXXXXXXXXXX",
+                "dataSourceType": "XXXXXXXXXXXXXXXXXXX",
                 "moduleName": "XXXXXXXXXXXXXXXXXXXX",
                 "className": "XXXXXXXXXXXXXXXXXXX",
                 "configuration": {},
@@ -613,7 +620,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             "query": query,
             "variables": {
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
-                "requestUuid": "8345496796697989615",
+                # "requestUuid": "8345496796697989615",
                 "userQuery": "XXXXXXXXXXXXXXXXXXX",
                 "updatedBy": "XXXXXXXXXXXXXXXXXXX",
             },
@@ -621,7 +628,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_graphql_delete_request(self):
         query = Utility.generate_graphql_operation(
             "deleteRequest", "Mutation", self.schema
@@ -631,7 +638,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             "query": query,
             "variables": {
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
-                "requestUuid": "8345496796697989615",
+                "requestUuid": "16951530481417589231",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -664,7 +671,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_knowledge_rag(self):
         query = Utility.generate_graphql_operation("knowledgeRag", "Query", self.schema)
         logger.info(f"Query: {query}")
@@ -674,8 +681,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                 # "userQuery": """Which product has the highest discounted price in the "High" price range?""",
                 # "userQuery": """Find products with the same price range and rating group as "Daikin 1.5 Ton 5 Star Inverter Split AC (Copper, PM 2.5 Filter, 2022 Model, MTKM50U, White)".""",
                 # "userQuery": """Recommend products similar to "Daikin 1.5 Ton 5 Star Inverter Split AC (Copper, PM 2.5 Filter, 2022 Model, MTKM50U, White)".""",
-                # "userQuery": """Get all lost opportunities with account detail handled by Moses Frase.""",
-                "userQuery": """Find companies similar to 'Zumgoity'.""",
+                "userQuery": """Get all lost opportunities with account detail handled by Moses Frase.""",
+                # "userQuery": """Find companies similar to 'Zumgoity'.""",
                 "documentSource": "company_data",
                 # "isSimilaritySearch": False,
             },

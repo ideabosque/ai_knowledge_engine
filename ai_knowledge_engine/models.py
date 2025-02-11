@@ -39,7 +39,7 @@ class DocumentModel(BaseModel):
     document_uuid = UnicodeAttribute(range_key=True)
     document_external_id = UnicodeAttribute()
     chunk_index = NumberAttribute(default=0)
-    document_type = UnicodeAttribute()
+    endpoint_id = UnicodeAttribute()
     document_title = UnicodeAttribute()
     document_content = UnicodeAttribute()
     title_embedding = ListAttribute(of=NumberAttribute, null=True)
@@ -56,7 +56,7 @@ class DocumentProcessTaskModel(BaseModel):
 
     document_source = UnicodeAttribute(hash_key=True)
     process_task_uuid = UnicodeAttribute(range_key=True)
-    document_type = UnicodeAttribute()
+    endpoint_id = UnicodeAttribute()
     process_status = UnicodeAttribute(default="initial")
     process_note = UnicodeAttribute(null=True)
     cut_time = UTCDateTimeAttribute(null=True)
@@ -101,7 +101,7 @@ class KnowledgeGraphMetadataModel(BaseModel):
 
     document_source = UnicodeAttribute(hash_key=True)
     metadata_version_uuid = UnicodeAttribute(range_key=True)
-    document_type = UnicodeAttribute()
+    endpoint_id = UnicodeAttribute()
     structured_data_views = ListAttribute(of=MapAttribute, null=True)
     structured_fields = ListAttribute(of=MapAttribute, null=True)
     unstructured_attributes = ListAttribute(of=MapAttribute, null=True)
@@ -113,12 +113,27 @@ class KnowledgeGraphMetadataModel(BaseModel):
     updated_at = UTCDateTimeAttribute()
 
 
+class DataSourceTypeIndex(LocalSecondaryIndex):
+    class Meta:
+        # index_name is optional, but can be provided to override the default name
+        index_name = "data_source_type-index"
+        billing_mode = "PAY_PER_REQUEST"
+        projection = AllProjection()
+
+    # This attribute is the hash key for the index
+    # Note that this attribute must also exist
+    # in the model
+    endpoint_id = UnicodeAttribute(hash_key=True)
+    data_source_type = UnicodeAttribute(range_key=True)
+
+
 class DataSourceModel(BaseModel):
     class Meta(BaseModel.Meta):
         table_name = "ake-data_sources"
 
-    data_source_type = UnicodeAttribute(hash_key=True)
+    endpoint_id = UnicodeAttribute(hash_key=True)
     data_source_name = UnicodeAttribute(range_key=True)
+    data_source_type = UnicodeAttribute()
     module_name = UnicodeAttribute()
     class_name = UnicodeAttribute()
     configuration = MapAttribute()
@@ -126,6 +141,7 @@ class DataSourceModel(BaseModel):
     created_at = UTCDateTimeAttribute()
     updated_by = UnicodeAttribute()
     updated_at = UTCDateTimeAttribute()
+    data_source_type_index = DataSourceTypeIndex()
 
 
 class RequestModel(BaseModel):

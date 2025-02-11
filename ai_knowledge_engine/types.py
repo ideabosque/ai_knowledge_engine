@@ -71,8 +71,9 @@ class KnowledgeGraphMetadataType(ObjectType):
 
 
 class DataSourceType(ObjectType):
-    data_source_type = String()
+    endpoint_id = String()
     data_source_name = String()
+    data_source_type = String()
     module_name = String()
     class_name = String()
     configuration = JSON()
