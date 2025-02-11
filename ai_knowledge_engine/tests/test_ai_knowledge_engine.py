@@ -498,7 +498,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_delete_knowledge_graph_metadata(self):
         query = Utility.generate_graphql_operation(
             "deleteKnowledgeGraphMetadata", "Mutation", self.schema
@@ -514,7 +514,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_graphql_knowledge_graph_metadata(self):
         query = Utility.generate_graphql_operation(
             "knowledgeGraphMetadata", "Query", self.schema
@@ -524,7 +524,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             "query": query,
             "variables": {
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
-                "metadataVersionUuid": "2146816827525173743",
+                "metadataVersionUuid": "17589703106240385519",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)

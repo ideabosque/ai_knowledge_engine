@@ -33,7 +33,7 @@ from .mutations import (
     InsertUpdateDocumentProcessTask,
     InsertUpdateKnowledgeGraphMetadata,
     InsertUpdateRequest,
-    LoadDocument
+    LoadDocument,
 )
 from .queries import (
     resolve_data_source,
@@ -143,7 +143,7 @@ class Query(ObjectType):
     knowledge_graph_metadata = Field(
         KnowledgeGraphMetadataType,
         document_source=String(required=True),
-        metadata_version_uuid=String(required=True),
+        metadata_version_uuid=String(required=False),
     )
 
     knowledge_graph_metadata_list = Field(
