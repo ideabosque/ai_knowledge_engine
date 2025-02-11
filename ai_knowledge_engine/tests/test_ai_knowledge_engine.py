@@ -514,7 +514,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_knowledge_graph_metadata(self):
         query = Utility.generate_graphql_operation(
             "knowledgeGraphMetadata", "Query", self.schema
@@ -530,7 +530,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_graphql_knowledge_graph_metadata_list(self):
         query = Utility.generate_graphql_operation(
             "knowledgeGraphMetadataList", "Query", self.schema
@@ -539,7 +539,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "documentType": "XXXXXXXXXXXXXXXXXXX",
+                "documentSource": "XXXXXXXXXXXXXXXXXXX",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)

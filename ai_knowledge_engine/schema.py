@@ -150,11 +150,7 @@ class Query(ObjectType):
         KnowledgeGraphMetadataListType,
         page_number=Int(required=False),
         limit=Int(required=False),
-        document_type=String(required=False),
-        document_sources=List(String, required=False),
-        data_source_name=String(required=False),
-        data_source_types=List(String, required=False),
-        data_view_name=String(required=False),
+        document_source=String(required=False),
         status=String(required=False),
     )
 
