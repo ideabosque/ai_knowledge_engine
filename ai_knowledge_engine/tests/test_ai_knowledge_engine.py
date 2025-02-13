@@ -480,7 +480,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_graphql_insert_update_knowledge_graph_metadata(self):
         query = Utility.generate_graphql_operation(
             "insertUpdateKnowledgeGraphMetadata", "Mutation", self.schema
@@ -494,21 +494,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                 # "structuredDataViews": [],
                 # "updatedBy": "XXXXXXXXXXXXXXXXXXX",
                 "documentSource": "jack_test_2",
-                "mergeRule": {
-                    "graph_merge_key": "a1",
-                    "graph_merge_node": "a2",
-                    "vector_merge_key": "a3",
-                    "vector_attributes_to_include": ["a4", "a5", "a6"],
-                },
-                "structuredDataViews": [
-                    {
-                        "data_source_name": "jack_test_2",
-                        "data_source_type": "c2",
-                        "data_view_name": "c3",
-                        "adaptor_filter_attribute": "c4",
-                        "graph_node_label": "c5",
-                    }
-                ],
+                "metadataVersionUuid": "5430499242157412847",
+                "status": True,
                 "updatedBy": "admin",
             },
         }
@@ -598,7 +585,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_data_source(self):
         query = Utility.generate_graphql_operation("dataSource", "Query", self.schema)
         logger.info(f"Query: {query}")

@@ -197,7 +197,7 @@ class InsertUpdateKnowledgeGraphMetadata(Mutation):
         unstructured_attributes = List(JSON, required=False)
         linkage_rules = List(JSON, required=False)
         merge_rule = JSON(required=False)
-        status = String(required=False)
+        status = Boolean(required=False)
         updated_by = String(required=True)
 
     @staticmethod

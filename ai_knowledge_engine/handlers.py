@@ -891,7 +891,7 @@ def insert_update_knowledge_graph_metadata_handler(
     if kwargs.get("entity") is None:
         cols = {
             "endpoint_id": info.context["endpoint_id"],
-            "status": "active",
+            "status": True,
             "updated_by": kwargs["updated_by"],
             "created_at": pendulum.now("UTC"),
             "updated_at": pendulum.now("UTC"),
