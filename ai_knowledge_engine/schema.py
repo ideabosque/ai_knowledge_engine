@@ -156,7 +156,6 @@ class Query(ObjectType):
 
     data_source = Field(
         DataSourceType,
-        data_source_type=String(required=True),
         data_source_name=String(required=True),
     )
 
