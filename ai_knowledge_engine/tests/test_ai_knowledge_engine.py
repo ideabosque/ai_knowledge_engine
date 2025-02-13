@@ -489,10 +489,27 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "documentSource": "XXXXXXXXXXXXXXXXXXX",
-                # "metadataVersionUuid": "16622104501141246447",
-                "structuredDataViews": [],
-                "updatedBy": "XXXXXXXXXXXXXXXXXXX",
+                # "documentSource": "XXXXXXXXXXXXXXXXXXX",
+                # # "metadataVersionUuid": "16622104501141246447",
+                # "structuredDataViews": [],
+                # "updatedBy": "XXXXXXXXXXXXXXXXXXX",
+                "documentSource": "jack_test_2",
+                "mergeRule": {
+                    "graph_merge_key": "a1",
+                    "graph_merge_node": "a2",
+                    "vector_merge_key": "a3",
+                    "vector_attributes_to_include": ["a4", "a5", "a6"],
+                },
+                "structuredDataViews": [
+                    {
+                        "data_source_name": "jack_test_2",
+                        "data_source_type": "c2",
+                        "data_view_name": "c3",
+                        "adaptor_filter_attribute": "c4",
+                        "graph_node_label": "c5",
+                    }
+                ],
+                "updatedBy": "admin",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -539,7 +556,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         payload = {
             "query": query,
             "variables": {
-                "documentSource": "XXXXXXXXXXXXXXXXXXX",
+                "documentSource": "jack_test_2",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -581,15 +598,14 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_graphql_data_source(self):
         query = Utility.generate_graphql_operation("dataSource", "Query", self.schema)
         logger.info(f"Query: {query}")
         payload = {
             "query": query,
             "variables": {
-                "dataSourceType": "XXXXXXXXXXXXXXXXXXX",
-                "dataSourceName": "XXXXXXXXXXXXXXXXXXX",
+                "dataSourceName": "jack_test_2",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -628,7 +644,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_delete_request(self):
         query = Utility.generate_graphql_operation(
             "deleteRequest", "Mutation", self.schema
@@ -652,7 +668,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             "query": query,
             "variables": {
                 "documentSource": "XXXXXXXXXXXXXXXXXXX",
-                "requestUuid": "8345496796697989615",
+                "requestUuid": "4705164795813106159",
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -681,8 +697,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                 # "userQuery": """Which product has the highest discounted price in the "High" price range?""",
                 # "userQuery": """Find products with the same price range and rating group as "Daikin 1.5 Ton 5 Star Inverter Split AC (Copper, PM 2.5 Filter, 2022 Model, MTKM50U, White)".""",
                 # "userQuery": """Recommend products similar to "Daikin 1.5 Ton 5 Star Inverter Split AC (Copper, PM 2.5 Filter, 2022 Model, MTKM50U, White)".""",
-                "userQuery": """Get all lost opportunities with account detail handled by Moses Frase.""",
-                # "userQuery": """Find companies similar to 'Zumgoity'.""",
+                # "userQuery": """Get all lost opportunities with account detail handled by Moses Frase.""",
+                "userQuery": """Find companies similar to 'Zumgoity'.""",
                 "documentSource": "company_data",
                 # "isSimilaritySearch": False,
             },
