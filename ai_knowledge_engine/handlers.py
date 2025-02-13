@@ -787,7 +787,11 @@ def get_knowledge_graph_metadata_type(
                     structured_data_view["endpoint_id"],
                     structured_data_view["data_source_name"],
                 ),
-                "data_view_name": structured_data_view["data_view_name"],
+                "data_view_name": structured_data_view.get("data_view_name"),
+                "adaptor_filter_attribute": structured_data_view.get(
+                    "adaptor_filter_attribute"
+                ),
+                "graph_node_label": structured_data_view.get("graph_node_label"),
             }
             for structured_data_view in knowledge_graph_metadata.structured_data_views
         ]
