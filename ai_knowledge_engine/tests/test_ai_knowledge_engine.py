@@ -28,9 +28,9 @@ setting = {
             "class_name": "AIKnowledgeEngine",
         },
     },
-    "module_bucket_name": os.getenv("module_bucket_name"),
-    "module_zip_path": os.getenv("module_zip_path"),
-    "module_extract_path": os.getenv("module_extract_path"),
+    "module_bucket_name": os.getenv("ADAPTOR_BUCKET_NAME"),
+    "module_zip_path": os.getenv("ADAPTOR_ZIP_PATH"),
+    "module_extract_path": os.getenv("ADAPTOR_EXTRACT_PATH"),
     "EMBEDDING_MODEL": os.getenv("EMBEDDING_MODEL"),
     "graph_db_connector_config": {
         "module_name": "neo4j_graph_connector",
@@ -240,11 +240,11 @@ Please the return the extracted data in the following format:
     },
 }
 
-sys.path.insert(0, f"{os.getenv('base_dir')}/ai_knowledge_engine")
-sys.path.insert(1, f"{os.getenv('base_dir')}/silvaengine_dynamodb_base")
-sys.path.insert(2, f"{os.getenv('base_dir')}/silvaengine_utility")
-sys.path.insert(3, f"{os.getenv('base_dir')}/neo4j_graph_connector")
-sys.path.insert(4, f"{os.getenv('base_dir')}/redis_stack_connector")
+sys.path.insert(0, f"{os.getenv('BASE_DIR')}/ai_knowledge_engine")
+sys.path.insert(1, f"{os.getenv('BASE_DIR')}/silvaengine_dynamodb_base")
+sys.path.insert(2, f"{os.getenv('BASE_DIR')}/silvaengine_utility")
+sys.path.insert(3, f"{os.getenv('BASE_DIR')}/neo4j_graph_connector")
+sys.path.insert(4, f"{os.getenv('BASE_DIR')}/redis_stack_connector")
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger()
@@ -480,7 +480,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_insert_update_knowledge_graph_metadata(self):
         query = Utility.generate_graphql_operation(
             "insertUpdateKnowledgeGraphMetadata", "Mutation", self.schema
@@ -714,21 +714,19 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_load_document(self):
         try:
             payload = {
                 "query": """mutation loadDocument(
                     $documentSource: String!
                     $documentType: String!
-                    $fileObjectKey: String!
-                    $chunkSize: Int
+                    $objectKey: String!
                 ) {
                     loadDocument (
                         documentSource: $documentSource
                         documentType: $documentType
-                        fileObjectKey: $fileObjectKey
-                        chunkSize: $chunkSize
+                        objectKey: $objectKey
                     ) {
                         ok
                     }
@@ -736,8 +734,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                 "variables": {
                     "documentSource": "load_test",
                     "documentType": "md",
-                    "fileObjectKey": "companys.json",
-                    "chunkSize": 1024 * 1024,
+                    "objectKey": "companies/cleaning-stuff-products.csv",
                 },
             }
             response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)

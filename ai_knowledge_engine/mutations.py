@@ -34,6 +34,7 @@ from .types import (
     KnowledgeGraphMetadataType,
     RequestType,
 )
+from .collection import S3DataProcessor
 
 
 class InsertUpdateDocument(Mutation):
@@ -335,13 +336,12 @@ class LoadDocument(Mutation):
     class Arguments:
         document_source = String(required=True)
         document_type = String(required=True)
-        file_object_key = String(required=True)
-        chunk_size = Int(required=False)
+        object_key = String(required=True)
 
     @staticmethod
     def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "InsertUpdateRequest":
         try:
-            load_document(info, **kwargs)
+            S3DataProcessor(setting=info.context.get("setting", {})).process_file(info=info, **kwargs)
         except Exception as e:
             log = traceback.format_exc()
             info.context.get("logger").error(log)
