@@ -12,6 +12,7 @@ import csv
 import xmltodict
 import yaml
 import toml
+import time
 from io import StringIO
 from xml.etree import ElementTree as ET
 from typing import List, Dict, Any
@@ -264,46 +265,57 @@ Output format (strictly JSON format):
         document_external_id = document_uuid
         chunk_index = 0
 
-        with DocumentModel.batch_write() as batch:
-            for item in data:
-                if item.get("data") is not None:
-                    print("\n\n>>>>>>>>>>> _save_to_dynamodb:\n", document_uuid, chunk_index)
-                    
-                    embeddings = self.openai_client.embeddings.create(
-                        input=json.dumps(item.get("data")), model=self.embedding_model
-                    )
-                    title_embedding = embeddings.data[0].embedding
-                    content_embedding = embeddings.data[0].embedding
+        max_retries = 5 
+        retry_count = 0
 
-                    self.vector_db_connector.index_document(
-                        prefix=redis_index_name,
-                        key="id",
-                        doc={
-                            "id": document_uuid,
-                            "content_vector": content_embedding,
-                            "content": item.get("data"),
-                        },
-                    )
+        while retry_count < max_retries:
+            try:
+                with DocumentModel.batch_write() as batch:
+                    for item in data:
+                        if item.get("data") is not None:
+                            print("\n\n>>>>>>>>>>> _save_to_dynamodb:\n", document_uuid, chunk_index)
+                            
+                            embeddings = self.openai_client.embeddings.create(
+                                input=json.dumps(item.get("data")), model=self.embedding_model
+                            )
+                            title_embedding = embeddings.data[0].embedding
+                            content_embedding = embeddings.data[0].embedding
 
-                    batch.save(DocumentModel(
-                        document_source=document_source,
-                        document_uuid=f"{document_uuid}",
-                        document_external_id=f"{document_external_id}",
-                        endpoint_id=document_type,
-                        document_title=f"{document_title} ",
-                        document_content=json.dumps(item.get("data")),
-                        chunk_index=chunk_index,
-                        title_embedding=title_embedding,
-                        content_embedding=content_embedding,
-                        created_at=now,
-                        updated_at=now,
-                        updated_by="load",
-                    ))
+                            self.vector_db_connector.index_document(
+                                prefix=redis_index_name,
+                                key="id",
+                                doc={
+                                    "id": document_uuid,
+                                    "content_vector": content_embedding,
+                                    "content": item.get("data"),
+                                },
+                            )
 
-                    document_uuid = uuid.uuid4().hex
+                            batch.save(DocumentModel(
+                                document_source=document_source,
+                                document_uuid=f"{document_uuid}",
+                                document_external_id=f"{document_external_id}",
+                                endpoint_id=document_type,
+                                document_title=f"{document_title} ",
+                                document_content=json.dumps(item.get("data")),
+                                chunk_index=chunk_index,
+                                title_embedding=title_embedding,
+                                content_embedding=content_embedding,
+                                created_at=now,
+                                updated_at=now,
+                                updated_by="load",
+                            ))
 
-                    if not is_structured_data:
-                        chunk_index +=1
+                            document_uuid = uuid.uuid4().hex
+
+                            if not is_structured_data:
+                                chunk_index +=1
+                break
+            except Exception as e:
+                retry_count += 1
+                print(f"Error: {e}")
+                print(f"Retrying... Attempt {retry_count}")
+                time.sleep(2 ** retry_count)
 
     def _generate_neo4j_insert_statements(self, entities: List[Dict[str, Any]]) -> str:
         """
