@@ -18,7 +18,7 @@ from typing import List, Dict, Any
 from openai import OpenAI
 from graphene import ResolveInfo
 from silvaengine_utility import Utility
-# from silvaengine_base import LambdaBase
+from silvaengine_base import LambdaBase
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from ..models import DocumentModel
 
