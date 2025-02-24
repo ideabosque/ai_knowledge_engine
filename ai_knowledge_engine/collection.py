@@ -12,15 +12,12 @@ import csv
 import xmltodict
 import yaml
 import toml
-import pandas as pd
-import requests
 from io import StringIO
 from xml.etree import ElementTree as ET
 from typing import List, Dict, Any
 from openai import OpenAI
 from graphene import ResolveInfo
 from silvaengine_utility import Utility
-from py2neo import Graph, Node, Relationship
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from .models import DocumentModel
 
