@@ -393,7 +393,7 @@ Output format (strictly JSON format):
             document_type: str, 
             object_key: str, 
             include_header: bool = True,
-            start_line: int = 0,
+            position: int = 0,
         ):
         """
         Read S3 files line by line and process data
@@ -405,7 +405,7 @@ Output format (strictly JSON format):
             object_key=object_key,
         )
         is_structured_data = document_classifier.is_structured_document()
-        response = self.aws_s3.get_object(Bucket=self.aws_s3_bucket, Key=object_key)
+        response = self.aws_s3.get_object(Bucket=self.aws_s3_bucket, Key=object_key, Range=f"bytes={position}-")
         stream = response['Body']
         redis_index_name = f"{document_type}:{document_source}"
         header = None
@@ -423,77 +423,82 @@ Output format (strictly JSON format):
             prefix=redis_index_name,
         )
 
-        for line in stream.iter_lines():
-            if i < start_line:
+        try:
+            for line in stream.iter_lines():
+                line_length = len(line)
+
+                if pendulum.now("UTC") - start_time > pendulum.duration(minutes=10):
+                    return self.invoke_self(
+                        info=info, 
+                        document_source= document_source, 
+                        document_type=document_type, 
+                        object_key=object_key, 
+                        include_header=False,
+                        start_line=i,
+                    )
+
+                line = self._clean_data(line.decode('utf-8'))
+
+                if is_structured_data:
+                    if include_header and i == 0: 
+                        header = line
+                        i+=1
+                        continue
+
+                    entities = self._extract_entities_from_unstructured(header+"\n\n"+line)
+                    self.structured_data.append({"data": line, "entities": entities})
+
+                    if type(entities) is list or type(entities) is dict:
+                        self.entity_cache.append(entities)
+
+                    # Every 20 pieces of structured data are stored
+                    if len(self.structured_data) >= 20:
+                        self._save_to_dynamodb(
+                            document_source=document_source,
+                            document_type=document_type,
+                            document_title=document_title,
+                            data=self.structured_data,
+                            redis_index_name=redis_index_name,
+                            is_structured_data=True,
+                        )
+                        self._write_to_neo4j(self.entity_cache)
+                        self.structured_data = []
+                        self.entity_cache = []
+
+                else:
+                    # Processing unstructured data
+                    entities = self._extract_entities_from_unstructured(line)
+                    tokens = self._tokenize_text(line)
+                    self.unstructured_data.append({"text": line, "tokens": tokens, "entities": entities})
+
+                    if type(entities) is list:
+                        self.entity_cache.extend(entities)
+
+                    if type(tokens) is list:
+                        self.token_count += len(tokens)
+
+                    # Once per 1000 tokens
+                    if self.token_count >= 1000:
+                        self._save_to_dynamodb(
+                            document_source=document_source,
+                            document_type=document_type,
+                            document_title=document_title,
+                            data=self.unstructured_data,
+                            redis_index_name=redis_index_name,
+                            is_structured_data=False,
+                        )
+                        self._write_to_neo4j(self.entity_cache)
+                        self.unstructured_data = []
+                        self.entity_cache = []
+                        self.token_count = 0
+
                 i += 1
-                continue
-
-            if pendulum.now("UTC") - start_time > pendulum.duration(minutes=10):
-                return self.invoke_self(
-                    info=info, 
-                    document_source= document_source, 
-                    document_type=document_type, 
-                    object_key=object_key, 
-                    include_header=False,
-                    start_line=i,
-                )
-
-            line = self._clean_data(line.decode('utf-8'))
-
-            if is_structured_data:
-                if include_header and i == 0: 
-                    header = line
-                    i+=1
-                    continue
-
-                entities = self._extract_entities_from_unstructured(header+"\n\n"+line)
-                self.structured_data.append({"data": line, "entities": entities})
-
-                if type(entities) is list or type(entities) is dict:
-                    self.entity_cache.append(entities)
-
-                # Every 20 pieces of structured data are stored
-                if len(self.structured_data) >= 20:
-                    self._save_to_dynamodb(
-                        document_source=document_source,
-                        document_type=document_type,
-                        document_title=document_title,
-                        data=self.structured_data,
-                        redis_index_name=redis_index_name,
-                        is_structured_data=True,
-                    )
-                    self._write_to_neo4j(self.entity_cache)
-                    self.structured_data = []
-                    self.entity_cache = []
-
-            else:
-                # Processing unstructured data
-                entities = self._extract_entities_from_unstructured(line)
-                tokens = self._tokenize_text(line)
-                self.unstructured_data.append({"text": line, "tokens": tokens, "entities": entities})
-
-                if type(entities) is list:
-                    self.entity_cache.extend(entities)
-
-                if type(tokens) is list:
-                    self.token_count += len(tokens)
-
-                # Once per 1000 tokens
-                if self.token_count >= 1000:
-                    self._save_to_dynamodb(
-                        document_source=document_source,
-                        document_type=document_type,
-                        document_title=document_title,
-                        data=self.unstructured_data,
-                        redis_index_name=redis_index_name,
-                        is_structured_data=False,
-                    )
-                    self._write_to_neo4j(self.entity_cache)
-                    self.unstructured_data = []
-                    self.entity_cache = []
-                    self.token_count = 0
-
-            i += 1
+                position += line_length
+        except Exception as e:
+            print(f"Skip: {e}")
+            response = self.aws_s3.get_object(Bucket=self.aws_s3_bucket, Key=object_key, Range=f'bytes={position}-')
+            stream = response['Body']
+            pass
 
         # Process the remaining data
         if self.structured_data:

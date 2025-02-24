@@ -336,6 +336,8 @@ class LoadDocument(Mutation):
         document_source = String(required=True)
         document_type = String(required=True)
         object_key = String(required=True)
+        position = Int(required=False)
+        include_header = Boolean(required=False)
 
     @staticmethod
     def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "InsertUpdateRequest":
