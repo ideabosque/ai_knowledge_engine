@@ -11,7 +11,7 @@ from graphene import Schema
 
 from silvaengine_dynamodb_base import SilvaEngineDynamoDBBase
 
-from .handlers import handlers_init
+from .handlers.handlers import handlers_init
 from .schema import Mutations, Query, type_class
 
 
@@ -116,6 +116,7 @@ def deploy() -> List:
                             "label": "Insert Update Data View",
                         },
                         {"action": "deleteDataView", "label": "Delete Data View"},
+                        {"action": "LoadDocument", "label": "Load Document"},
                     ],
                     "type": "RequestResponse",
                     "support_methods": ["POST"],

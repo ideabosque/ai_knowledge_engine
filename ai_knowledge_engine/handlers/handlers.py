@@ -35,7 +35,7 @@ from silvaengine_dynamodb_base import (
 )
 from silvaengine_utility import Utility
 
-from .models import (
+from ..models import (
     DataSourceModel,
     DocumentModel,
     DocumentProcessEntityModel,
@@ -43,7 +43,7 @@ from .models import (
     KnowledgeGraphMetadataModel,
     RequestModel,
 )
-from .types import (
+from ..types import (
     DataSourceListType,
     DataSourceType,
     DataViewType,

@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 from graphene import ResolveInfo
 
-from .handlers import (
+from .handlers.handlers import (
     resolve_data_source_handler,
     resolve_data_source_list_handler,
     resolve_data_view_handler,

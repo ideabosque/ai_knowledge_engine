@@ -18,8 +18,9 @@ from typing import List, Dict, Any
 from openai import OpenAI
 from graphene import ResolveInfo
 from silvaengine_utility import Utility
+# from silvaengine_base import LambdaBase
 from typing import Any, Callable, Dict, List, Optional, Tuple
-from .models import DocumentModel
+from ..models import DocumentModel
 
 
 class S3DataProcessor:
@@ -373,7 +374,15 @@ Output format (strictly JSON format):
         #     ) as session:
         #          session.run(cypher_query)
 
-    def process_file(self, info: ResolveInfo, document_source: str, document_type: str, object_key: str, include_header: bool = True):
+    def process_file(
+            self, 
+            info: ResolveInfo, 
+            document_source: str, 
+            document_type: str, 
+            object_key: str, 
+            include_header: bool = True,
+            start_line: int = 0,
+        ):
         """
         Read S3 files line by line and process data
         """
@@ -388,6 +397,7 @@ Output format (strictly JSON format):
         stream = response['Body']
         redis_index_name = f"{document_type}:{document_source}"
         header = None
+        start_time = pendulum.now("UTC")
         i = 0
 
         self.vector_db_connector.create_redis_index(
@@ -402,6 +412,20 @@ Output format (strictly JSON format):
         )
 
         for line in stream.iter_lines():
+            if i < start_line:
+                i += 1
+                continue
+
+            if pendulum.now("UTC") - start_time > pendulum.duration(minutes=10):
+                return self.invoke_self(
+                    info=info, 
+                    document_source= document_source, 
+                    document_type=document_type, 
+                    object_key=object_key, 
+                    include_header=False,
+                    start_line=i,
+                )
+
             line = self._clean_data(line.decode('utf-8'))
 
             if is_structured_data:
@@ -482,7 +506,38 @@ Output format (strictly JSON format):
             )
             self._write_to_neo4j(self.entity_cache)
 
+    def invoke_self(self, info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
+        """
+        Invoke Lambda function
+        """
+        method = "POST"
+        (settings, function) = LambdaBase.get_function(
+            endpoint_id=self.setting.get("import_document_endpoint_id"),
+            funct="ai_knowledge_graphql",
+            api_key=self.setting.get("import_document_api_key"),
+            method=str(method).strip().upper(),
+        )
 
+        parameters = (
+            parameters
+            if Utility.is_json_string(kwargs)
+            else Utility.json_dumps(kwargs)
+        )
+        return LambdaBase.invoke(
+            FunctionName=str(function.aws_lambda_arn).strip(),
+            InvocationType="Event",
+            Payload=json.dumps(
+                {
+                    "MODULENAME": "ai_knowledge_engine",
+                    "CLASSNAME": "AIKnowledgeEngine",
+                    "funct": "ai_knowledge_graphql",
+                    "setting": Utility.json_dumps(self.setting),
+                    "params": parameters,
+                    "body": parameters,
+                    "context": info.context,
+                }
+            ),
+        )
 
 class DocumentClassifier:
     def __init__(self, aws_s3_client: Any, aws_s3_bucket: str, object_key: str):

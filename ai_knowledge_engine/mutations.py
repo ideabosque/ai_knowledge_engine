@@ -11,7 +11,7 @@ from graphene import Boolean, DateTime, Field, Float, Int, List, Mutation, Strin
 
 from silvaengine_utility import JSON
 
-from .handlers import (
+from .handlers.handlers import (
     delete_data_source_handler,
     delete_document_handler,
     delete_document_process_entity_handler,
@@ -24,7 +24,6 @@ from .handlers import (
     insert_update_document_process_task_handler,
     insert_update_knowledge_graph_metadata_handler,
     insert_update_request_handler,
-    load_document,
 )
 from .types import (
     DataSourceType,
@@ -34,7 +33,7 @@ from .types import (
     KnowledgeGraphMetadataType,
     RequestType,
 )
-from .collection import S3DataProcessor
+from .handlers.collection import S3DataProcessor
 
 
 class InsertUpdateDocument(Mutation):

@@ -42,6 +42,8 @@ setting = {
             "neo4j_database": os.getenv("NEO4J_DATABASE"),
         },
     },
+    "import_document_endpoint_id": os.getenv("IMPORT_DOCUMENT_ENDPOINT_ID"),
+    "import_document_api_key": os.getenv("IMPORT_DOCUMENT_API_KEY"),
     "vector_db_connector_config": {
         "module_name": "redis_stack_connector",
         "class_name": "RedisStackConnector",
