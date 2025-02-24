@@ -318,7 +318,6 @@ Output format (strictly JSON format):
                     var_counter = 1
                     var_mapping = {}
 
-                    # 生成节点创建语句
                     if 'entities' in item:
                         for entity in item['entities']:
                             node_type = entity['type'].replace(" ", "_")
@@ -339,7 +338,6 @@ Output format (strictly JSON format):
                             var_mapping[node_id] = var_name
                             var_counter += 1
 
-                    # 生成关系创建语句
                     if 'relationships' in item:
                         for relationship in item['relationships']:
                             from_id = relationship['from']
@@ -352,7 +350,6 @@ Output format (strictly JSON format):
                     if len(node_creations) < 1:
                         continue
 
-                    # 组合成一条 Cypher 语句
                     cypher_query = f'CREATE {", ".join(node_creations)}'
 
                     if relationship_creations:
