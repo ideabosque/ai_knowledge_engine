@@ -535,6 +535,11 @@ Output format (strictly JSON format):
             if Utility.is_json_string(kwargs)
             else Utility.json_dumps(kwargs)
         )
+        context = (
+            parameters
+            if Utility.is_json_string(info.context)
+            else Utility.json_dumps(info.context)
+        )
         return LambdaBase.invoke(
             FunctionName=str(function.aws_lambda_arn).strip(),
             InvocationType="Event",
@@ -546,7 +551,7 @@ Output format (strictly JSON format):
                     "setting": Utility.json_dumps(self.setting),
                     "params": parameters,
                     "body": parameters,
-                    "context": info.context,
+                    "context": context,
                 }
             ),
         )
