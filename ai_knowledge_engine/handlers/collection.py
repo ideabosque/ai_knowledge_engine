@@ -434,7 +434,7 @@ Output format (strictly JSON format):
                         document_type=document_type, 
                         object_key=object_key, 
                         include_header=False,
-                        start_line=i,
+                        position=position,
                     )
 
                 line = self._clean_data(line.decode('utf-8'))
