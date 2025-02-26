@@ -60,10 +60,14 @@ class Extractor:
         if type(attributes) is dict and len(attributes) > 0:
             entities = self.graph_scheme.get("entities", {})
 
-            for label, entity in entities.items():
-                if label.lower() == document_source.lower() and "attributes" in entity and type(entity["attributes"]) is list:
-                    self.graph_scheme["entities"][label]["attributes"] = list(set(entity["attributes"] + list(attributes.values())))
-
+            if len(entities) > 0:
+                for label, entity in entities.items():
+                    if label.lower() == document_source.lower() and "attributes" in entity and type(entity["attributes"]) is list:
+                        self.graph_scheme["entities"][label]["attributes"] = list(set(entity["attributes"] + list(attributes.values())))
+            else:
+                self.graph_scheme["entities"][document_source.capitalize()] = {
+                    "attributes": list(attributes.values())
+                }
 
     
     def clean_data(self, text: str) -> str:

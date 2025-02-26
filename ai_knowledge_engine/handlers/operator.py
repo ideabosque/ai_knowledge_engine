@@ -28,7 +28,7 @@ class Operator:
         """
         Build index name for vector database
         """
-        return f"{self.endpoint_id}_{self.document_source}"
+        return f"{self.endpoint_id}:{self.document_source}"
 
 
     def _generate_cypher_statments(self, data: Dict[str, Any]) -> str:

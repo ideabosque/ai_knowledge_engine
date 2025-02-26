@@ -58,11 +58,8 @@ class S3DataProcessor:
         chunk = ""
         i = 0
 
-        print("+++++++++++++++++++++++")
-
         try:
             for line in stream.iter_lines():
-                
                 # Invoke self if the excute time is greater than 10 minutes
                 if pendulum.now("UTC") - excute_start_time > pendulum.duration(minutes=10):
                     return self.invoke_self(
