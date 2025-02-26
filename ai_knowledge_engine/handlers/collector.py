@@ -58,26 +58,33 @@ class S3DataProcessor:
         chunk = ""
         i = 0
 
+        print("+++++++++++++++++++++++")
+
         try:
             for line in stream.iter_lines():
-                position += len(line) # Locates the location of the currently processed file and continues from this location only if an error occurs in file reading
-
+                
                 # Invoke self if the excute time is greater than 10 minutes
                 if pendulum.now("UTC") - excute_start_time > pendulum.duration(minutes=10):
                     return self.invoke_self(
                         info=info, 
-                        document_source= document_source, 
+                        document_source=document_source, 
                         endpoint_id=endpoint_id, 
                         object_key=object_key, 
-                        skip_header=False,
-                        position=position,
+                        skip_header=True,
+                        position = position,
+                        embedding_attributes= embedding_attributes,
+                        graph_scheme_attributes = graph_scheme_attributes,
+                        vector_scheme_attributes = vector_scheme_attributes,
+                        max_retries = max_retries,
+                        editor = editor,
+                        chunk_size_for_unstructured = chunk_size_for_unstructured,
                     )
-                elif line.decode('utf-8').strip() == "":
-                    continue
-                elif skip_header and i == 0: 
-                        header = line.decode('utf-8').strip()
-                        i+=1
-                        continue
+                # elif line.decode('utf-8').strip() == "":
+                #     continue
+                # elif skip_header and i == 0: 
+                #         header = line.decode('utf-8').strip()
+                #         i+=1
+                #         continue
                 i += 1
                 print(f"*** LINE NUMBER: {i} ***************************************************\n")
                 data = line.decode('utf-8').strip()
@@ -142,6 +149,7 @@ class S3DataProcessor:
                         )
                         self.token_count = 0
                         chunk_index += 1
+                position += len(line) # Locates the location of the currently processed file and continues from this location only if an error occurs in file reading
         except Exception as e:
             response = self.config.aws_s3.get_object(Bucket=self.config.aws_s3_bucket, Key=object_key, Range=f"bytes={position}-")
             stream = response['Body']
@@ -176,12 +184,15 @@ class S3DataProcessor:
         # setting=None,
         # test_mode=None,
         # aws_lambda=None,
+        print(">>>>>", kwargs)
         scheme = Utility.fetch_graphql_schema(
             logger=info.context.get("logger"), 
             endpoint_id=info.context.get("endpoint_id"),
             funct="ai_knowledge_graphql",
             setting=info.context.get("setting"),
         )
+
+        
         # logger,
         # endpoint_id,
         # funct,
