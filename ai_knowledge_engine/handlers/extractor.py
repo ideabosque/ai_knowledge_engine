@@ -78,8 +78,8 @@ class Extractor:
         """
         try:
             prompt = f"Please tokenize the user-submitted text and return it strictly as a JSON array. "
-            response = self.openai_client.chat.completions.create(
-                model=self.openai_model,
+            response = self.config.openai_client.chat.completions.create(
+                model=self.config.openai_model,
                 messages=[
                     {"role": "system", "content":prompt},
                     {"role": "user", "content": self.clean_data(text)}

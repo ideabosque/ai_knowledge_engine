@@ -79,12 +79,12 @@ class S3DataProcessor:
                         editor = editor,
                         chunk_size_for_unstructured = chunk_size_for_unstructured,
                     )
-                # elif line.decode('utf-8').strip() == "":
-                #     continue
-                # elif skip_header and i == 0: 
-                #         header = line.decode('utf-8').strip()
-                #         i+=1
-                #         continue
+                elif line.decode('utf-8').strip() == "":
+                    continue
+                elif skip_header and i == 0: 
+                        header = line.decode('utf-8').strip()
+                        i+=1
+                        continue
                 i += 1
                 print(f"*** LINE NUMBER: {i} ***************************************************\n")
                 data = line.decode('utf-8').strip()
@@ -160,7 +160,6 @@ class S3DataProcessor:
         """
         Invoke Lambda function
         """
-        print(">>>>>", kwargs)
         scheme = Utility.fetch_graphql_schema(
             logger=info.context.get("logger"), 
             endpoint_id=info.context.get("endpoint_id"),

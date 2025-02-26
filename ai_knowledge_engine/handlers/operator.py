@@ -55,7 +55,8 @@ class Operator:
                                 properties.append(f"{key}: {value}")
 
                     if len(properties) > 0:
-                        cypher_statements.append(f"(:{node_type} {{ {", ".join(properties)} }});")
+                        statement = ", ".join(properties)
+                        cypher_statements.append(f"(:{node_type} {{ {statement} }});")
 
             for relation in data.get('relations', []):
                 print(f">>>>>>>>>>>>> relation:{relation}\n")
