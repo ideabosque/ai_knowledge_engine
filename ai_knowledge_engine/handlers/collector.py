@@ -160,30 +160,6 @@ class S3DataProcessor:
         """
         Invoke Lambda function
         """
-        method = "POST"
-        # (settings, function) = LambdaBase.get_function(
-        #     endpoint_id=self.setting.get("import_document_endpoint_id"),
-        #     funct="ai_knowledge_graphql",
-        #     api_key=self.setting.get("import_document_api_key"),
-        #     method=str(method).strip().upper(),
-        # )
-
-        # parameters = (
-        #     parameters
-        #     if Utility.is_json_string(kwargs)
-        #     else Utility.json_dumps(kwargs)
-        # )
-        # context = (
-        #     parameters
-        #     if Utility.is_json_string(info.context)
-        #     else Utility.json_dumps(info.context)
-        # )
-        # logger,
-        # endpoint_id,
-        # funct,
-        # setting=None,
-        # test_mode=None,
-        # aws_lambda=None,
         print(">>>>>", kwargs)
         scheme = Utility.fetch_graphql_schema(
             logger=info.context.get("logger"), 
@@ -192,16 +168,6 @@ class S3DataProcessor:
             setting=info.context.get("setting"),
         )
 
-        
-        # logger,
-        # endpoint_id,
-        # funct,
-        # query,
-        # variables={},
-        # setting=None,
-        # connection_id=None,
-        # test_mode=None,
-        # aws_lambda=None,
         return Utility.execute_graphql_query(
             logger=info.context.get("logger"),
             endpoint_id=info.context.get("endpoint_id"),
