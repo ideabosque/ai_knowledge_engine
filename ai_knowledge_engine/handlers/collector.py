@@ -62,7 +62,7 @@ class S3DataProcessor:
             for line in stream.iter_lines():
                 # Invoke self if the excute time is greater than 10 minutes
                 if pendulum.now("UTC") - excute_start_time > pendulum.duration(minutes=10):
-                    return self.invoke_self(
+                    self.invoke_self(
                         info=info, 
                         document_source=document_source, 
                         endpoint_id=endpoint_id, 
@@ -76,6 +76,7 @@ class S3DataProcessor:
                         editor = editor,
                         chunk_size_for_unstructured = chunk_size_for_unstructured,
                     )
+                    return
                 elif line.decode('utf-8').strip() == "":
                     continue
                 elif skip_header and i == 0: 
