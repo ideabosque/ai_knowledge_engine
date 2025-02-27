@@ -171,11 +171,13 @@ class Operator:
             document = {
                 "id": documentId,
                 "content_vector": embedding,
+                "name": "",
             }
 
             if type(self.vector_scheme_attributes) is dict and len(self.vector_scheme_attributes) > 0:
                 for k,v in self.vector_scheme_attributes.items():
-                    document[v] = obj.get(k)
+                    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>",obj.get(k, ""))
+                    document[v] = obj.get(k, "")
 
             print(f"\n\n=================== Save vector document successful: {documentId}")
             print(self._generate_vector_database_index_name())
