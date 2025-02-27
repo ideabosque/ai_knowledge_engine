@@ -342,6 +342,7 @@ class LoadDocument(Mutation):
         max_retries = Int(required=False, default_value=3)
         editor = String(required=False, default_value="")
         chunk_size_for_unstructured = Int(required=False, default_value=500)
+        document_external_id = String(required=False, default_value=None)
 
     @staticmethod
     def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "InsertUpdateRequest":

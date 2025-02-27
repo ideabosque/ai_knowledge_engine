@@ -36,6 +36,7 @@ class S3DataProcessor:
             max_retries: int = 3,
             editor: str = "",
             chunk_size_for_unstructured: int = 500,
+            document_external_id: str = None,
         ):
         """
         Read S3 files line by line and process data
@@ -51,7 +52,6 @@ class S3DataProcessor:
             vector_scheme_attributes=vector_scheme_attributes,
             embedding_attributes=embedding_attributes,
         )
-        document_external_id = uuid.uuid4().hex
         document_title = f"Processed Document <{self.config}>"
         response = self.config.aws_s3.get_object(Bucket=self.config.aws_s3_bucket, Key=object_key, Range=f"bytes={position}-")
         stream = response['Body']
@@ -59,6 +59,9 @@ class S3DataProcessor:
         header = ""
         chunk = ""
         i = 0
+
+        if document_external_id is None:
+            document_external_id = uuid.uuid4().hex
 
         try:
             for line in stream.iter_lines():
@@ -78,6 +81,7 @@ class S3DataProcessor:
                             max_retries = max_retries,
                             editor = editor,
                             chunk_size_for_unstructured = chunk_size_for_unstructured,
+                            document_external_id = document_external_id,
                         )
                         return
 
