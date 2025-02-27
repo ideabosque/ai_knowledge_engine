@@ -60,84 +60,46 @@ class S3DataProcessor:
 
         try:
             for line in stream.iter_lines():
-                # Invoke self if the excute time is greater than 10 minutes
-                if pendulum.now("UTC") - excute_start_time > pendulum.duration(minutes=10):
-                    self.invoke_self(
-                        info=info, 
-                        document_source=document_source, 
-                        endpoint_id=endpoint_id, 
-                        object_key=object_key, 
-                        skip_header=True,
-                        position = position,
-                        embedding_attributes= embedding_attributes,
-                        graph_scheme_attributes = graph_scheme_attributes,
-                        vector_scheme_attributes = vector_scheme_attributes,
-                        max_retries = max_retries,
-                        editor = editor,
-                        chunk_size_for_unstructured = chunk_size_for_unstructured,
-                    )
-                    return
-                elif line.decode('utf-8').strip() == "":
-                    continue
-                elif skip_header and i == 0: 
-                        header = line.decode('utf-8').strip()
-                        i+=1
+                try:
+                    # Invoke self if the excute time is greater than 10 minutes
+                    if pendulum.now("UTC") - excute_start_time > pendulum.duration(minutes=10):
+                        self.invoke_self(
+                            info=info,
+                            document_source=document_source,
+                            endpoint_id=endpoint_id,
+                            object_key=object_key,
+                            skip_header=True,
+                            position = position,
+                            embedding_attributes= embedding_attributes,
+                            graph_scheme_attributes = graph_scheme_attributes,
+                            vector_scheme_attributes = vector_scheme_attributes,
+                            max_retries = max_retries,
+                            editor = editor,
+                            chunk_size_for_unstructured = chunk_size_for_unstructured,
+                        )
+                        return
+
+                    position += len(line) # Locates the location of the currently processed file and continues from this location only if an error occurs in file reading
+
+                    if line.decode('utf-8').strip() == "":
                         continue
-                i += 1
-                print(f"*** LINE NUMBER: {i} ***************************************************\n")
-                data = line.decode('utf-8').strip()
-                obj = parser.parse(header, data)
-                
-                if type(obj) is dict and len(obj) > 0:
-                    document_uuid = uuid.uuid4().hex
-                    embedding = operator.embedding(obj=obj)
-                    # 1. Write data to vector database
-                    operator.save_vector_document(obj, document_uuid, embedding)
-                    # 2. Save data to dynamodb
-                    operator.save_document_chuck(
-                        raw=data, 
-                        document_uuid=document_uuid,
-                        document_title=document_title, 
-                        document_external_id=document_external_id,
-                        embeddings=embedding,
-                        editor=editor,
-                        max_retries=max_retries,
-                    )
+                    elif skip_header and i == 0:
+                            header = line.decode('utf-8').strip()
+                            i+=1
+                            continue
+                    i += 1
+                    print(f"\n*** LINE NUMBER: {i} ***************************************************\n\n\n")
+                    data = line.decode('utf-8').strip()
+                    obj = parser.parse(header, data)
 
-                    # 3. Extract entities & write entitis to graph database
-                    entities = extractor.extract_entities(json.dumps(obj))
-
-                    if type(entities) is dict and len(entities) > 0:
-                        operator.save_graph_document(entities)
-
-                elif parser.need_read_next: # If the object is uncompletion, read the next line
-                    continue
-
-                else: # Unstructured data
-                    chunk += data
-                    tokens = extractor.tokenize_text(data)
-
-                    if type(tokens) is list:
-                        self.token_count += len(tokens)
-
-
-                    # Once per 1000 tokens
-                    if self.token_count >= chunk_size_for_unstructured:
-                        # 1. Extract entities from the chunk
-                        entities = extractor.extract_entities(extractor.clean_data(chunk))
-
-                        # 2. Save entities to the graph database
-                        if type(entities) is dict and len(entities) > 0:
-                            operator.save_graph_document(entities)
-
+                    if type(obj) is dict and len(obj) > 0:
                         document_uuid = uuid.uuid4().hex
-                        # 3. Convert the entities to embeddings
-                        embedding = operator.embedding(obj=entities)
-                        # 4. Save the embeddings to the vector database
+                        embedding = operator.embedding(obj=obj)
+                        # 1. Write data to vector database
                         operator.save_vector_document(obj, document_uuid, embedding)
-                        # 5. Save the document chunk to dynamodb
+                        # 2. Save data to dynamodb
                         operator.save_document_chuck(
-                            raw=chunk, 
+                            raw=data,
                             document_uuid=document_uuid,
                             document_title=document_title, 
                             document_external_id=document_external_id,
@@ -145,13 +107,49 @@ class S3DataProcessor:
                             editor=editor,
                             max_retries=max_retries,
                         )
-                        self.token_count = 0
-                        chunk_index += 1
-                position += len(line) # Locates the location of the currently processed file and continues from this location only if an error occurs in file reading
+                        # 3. Extract entities & write entitis to graph database
+                        operator.save_graph_document(extractor.extract_entities(json.dumps(obj)))
+
+                    elif parser.need_read_next: # If the object is uncompletion, read the next line
+                        continue
+
+                    else: # Unstructured data
+                        chunk += data
+                        tokens = extractor.tokenize_text(data)
+
+                        if type(tokens) is list:
+                            self.token_count += len(tokens)
+
+
+                        # Once per 1000 tokens
+                        if self.token_count >= chunk_size_for_unstructured:
+                            # 1. Extract entities from the chunk
+                            entities = extractor.extract_entities(extractor.clean_data(chunk))
+                            # 2. Save entities to the graph database
+                            operator.save_graph_document(entities)
+                            document_uuid = uuid.uuid4().hex
+                            # 3. Convert the entities to embeddings
+                            embedding = operator.embedding(obj=entities)
+                            # 4. Save the embeddings to the vector database
+                            operator.save_vector_document(obj, document_uuid, embedding)
+                            # 5. Save the document chunk to dynamodb
+                            operator.save_document_chuck(
+                                raw=chunk,
+                                document_uuid=document_uuid,
+                                document_title=document_title,
+                                document_external_id=document_external_id,
+                                embeddings=embedding,
+                                editor=editor,
+                                max_retries=max_retries,
+                            )
+                            self.token_count = 0
+                            chunk_index += 1
+                except Exception as e:
+                    print(traceback.format_exc())
+                    continue
         except Exception as e:
             response = self.config.aws_s3.get_object(Bucket=self.config.aws_s3_bucket, Key=object_key, Range=f"bytes={position}-")
             stream = response['Body']
-            print(traceback.format_exc())
             print(f"Skip: {e}")
             pass
     def invoke_self(self, info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:

@@ -20,7 +20,7 @@ class Operator:
         self.graph_scheme_attributes = graph_scheme_attributes
         self.vector_scheme_attributes = vector_scheme_attributes
         self.embedding_attributes = embedding_attributes
-        self.graph_attrbites = list(graph_scheme_attributes.values())
+        self.graph_attributes = list(graph_scheme_attributes.values())
 
         self._create_vector_database_index()
 
@@ -38,7 +38,6 @@ class Operator:
         try:
             cypher_statements = []
 
-
             for entity in data.get('entities', []):
                 if "type" in entity:
                     node_type = entity['type']
@@ -47,7 +46,7 @@ class Operator:
                     for key, value in entity.items():
                         if key == 'type':
                             continue
-                        elif key.lower() in self.graph_attrbites:
+                        elif key.lower() in self.graph_attributes:
                             if isinstance(value, str):
                                 value = value.replace("'", "\\'")
                                 properties.append(f"{key}: '{value}'")
@@ -156,7 +155,8 @@ class Operator:
                     updated_at=now,
                     updated_by=editor,
                 ).save()
-                print(">>>>>> Save data to dynamodb successful:", document_uuid)
+                
+                print(f"\n\n=================== Save data to dynamodb successful: {document_uuid}")
                 break
             except Exception as e:
                 retry_count += 1
@@ -177,7 +177,7 @@ class Operator:
                 for k,v in self.vector_scheme_attributes.items():
                     document[v] = obj.get(k)
 
-            print("=========================================================== Vector Document")
+            print(f"\n\n=================== Save vector document successful: {documentId}")
             
             self.config.vector_db_connector.index_document(
                 prefix=self._generate_vector_database_index_name(),
@@ -192,17 +192,25 @@ class Operator:
         Extract entities from the given object and save them to the graph database.
         """
         try:
+            print("\n\n=================== Graph Entities")
+            print("\n>>>>>>>>>> 1. Extracted Entities:", entities)
+            
             if type(entities) is not dict or len(entities) < 1:
                 return
             
+            print(f"\n>>>>>>>>>> 2. Extracted Entities Verify: {entities}")
+            
             cypher_query = self._generate_cypher_statments(entities)
 
+            print(f"\n>>>>>>>>>> 2. Generated Cypher Statment: {cypher_query}")
+
             if type(cypher_query) is str and len(cypher_query) > 0:
-                print(f">>>>>>>> CYPHER QUERY: {cypher_query}")
+                print(f"\n>>>>>>>>>> 4. Excute Cypher Query: {cypher_query}\n\n")
                 with self.config.graph_db_connector.driver.session(
                     database=self.config.setting.get("neo4j_database", "neo4j")
                 ) as session:
                     session.run(cypher_query)
                 # session.close()
+                print("\n=================== Save graph document successful")
         except Exception as e:
             raise e
