@@ -2,6 +2,7 @@ import json
 import traceback
 import uuid
 import pendulum
+import logging
 from graphene import ResolveInfo
 from silvaengine_utility import Utility
 from typing import Any,  Dict, List
@@ -152,25 +153,21 @@ class S3DataProcessor:
             stream = response['Body']
             print(f"Skip: {e}")
             pass
+
+
     def invoke_self(self, info: ResolveInfo, **kwargs: Dict[str, Any]) -> Any:
         """
         Invoke Lambda function
         """
-        scheme = Utility.fetch_graphql_schema(
-            logger=info.context.get("logger"), 
-            endpoint_id=info.context.get("endpoint_id"),
-            funct="ai_knowledge_graphql",
-            setting=info.context.get("setting"),
-        )
 
         return Utility.execute_graphql_query(
             logger=info.context.get("logger"),
             endpoint_id=info.context.get("endpoint_id"),
             funct="ai_knowledge_graphql",
-            query=scheme,
+            query=Utility.generate_graphql_operation("loadDocument", "Mutation", self.config.graphql_schemes),
             variables=kwargs,
             setting=info.context.get("setting"),
             connection_id=None,
             test_mode=None,
-            aws_lambda=None,
+            aws_lambda=self.config.aws_lambda,
         )

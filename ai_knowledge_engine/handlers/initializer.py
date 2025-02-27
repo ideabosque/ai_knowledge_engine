@@ -6,10 +6,8 @@ from silvaengine_utility import Utility
 class Initializer:
     def __init__(self, setting: Dict[str, Any]):
         self.setting = setting
-        self.structured_data = []
-        self.unstructured_data = []
-        self.entity_cache = []  # For staging entities, attributes, and relationships
-        self.token_count = 0
+        self.graphql_schemes = {}
+        self.test_mode = setting.get("test_mode")
 
         if "EMBEDDING_MODEL" in setting:
             self.embedding_model = setting["EMBEDDING_MODEL"]
@@ -23,6 +21,11 @@ class Initializer:
         self._initialize_openai_client()
         self._initialize_graph_database()
         self._initialize_vector_database()
+        self.fetch_graphql_schema(
+            endpoint_id=self.setting.get("endpoint_id"), 
+            function_name="ai_knowledge_graphql",
+            logger=logging.Logger("ai_knowledge_graphql"),
+        )
 
     def _initialize_aws_services(self) -> None:
         """
@@ -40,6 +43,7 @@ class Initializer:
         else:
             aws_credentials = {}
 
+        self.aws_lambda = boto3.client("lambda")
         self.aws_s3_bucket = self.setting.get("swap_bucket_name")
         self.aws_s3 = boto3.client("s3", **aws_credentials)
 
@@ -161,3 +165,20 @@ class Initializer:
         for key, value in data.items():
             entities.append({"entity": key, "attribute": value, "relation": "HAS_ATTRIBUTE"})
         return entities
+
+    def fetch_graphql_schema(
+        self,
+        endpoint_id: str,
+        function_name: str,
+        logger: logging.Logger = None,
+    ) -> Dict[str, Any]:
+
+        if self.graphql_schemes.get(function_name) is None:
+            self.graphql_schemes[function_name] = Utility.fetch_graphql_schema(
+                logger,
+                endpoint_id,
+                function_name,
+                setting=self.setting,
+                aws_lambda=self.aws_lambda,
+        )
+        return self.graphql_schemes[function_name]

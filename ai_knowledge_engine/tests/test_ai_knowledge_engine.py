@@ -267,7 +267,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             setting=setting,
             test_mode=test_mode,
         )
-        print(setting)
+        # print(setting)
+        print(self.schema)
         logger.info("Initiate AIKnowledgeEngineTest ...")
 
     def tearDown(self):
