@@ -180,5 +180,6 @@ class Initializer:
                 function_name,
                 setting=self.setting,
                 aws_lambda=self.aws_lambda,
-        )
+            )
+
         return self.graphql_schemes[function_name]
