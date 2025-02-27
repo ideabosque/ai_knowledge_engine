@@ -178,6 +178,8 @@ class Operator:
                     document[v] = obj.get(k)
 
             print(f"\n\n=================== Save vector document successful: {documentId}")
+            print(self._generate_vector_database_index_name())
+            print(document)
             
             self.config.vector_db_connector.index_document(
                 prefix=self._generate_vector_database_index_name(),

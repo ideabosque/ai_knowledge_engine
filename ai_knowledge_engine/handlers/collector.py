@@ -160,7 +160,6 @@ class S3DataProcessor:
         """
         Invoke Lambda function
         """
-        
         return Utility.execute_graphql_query(
             logger=info.context.get("logger"),
             endpoint_id=info.context.get("endpoint_id"),

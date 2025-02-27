@@ -16,7 +16,6 @@ class Extractor:
         """
         Extracting entities, attributes, and relationships from data for graph
         """
-
         try:
             system_prompt = f"""Please strictly follow the following data mapping rules and schemes to extract the corresponding information and relationships from the user-provided data:
 1. Mapping rule - Mapping rules for fields in user data and scheme fields (The key in the rule corresponds to the user's original data source, and the value corresponds to the key in the scheme.):

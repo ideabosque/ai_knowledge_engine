@@ -152,11 +152,3 @@ class AIKnowledgeEngine(SilvaEngineDynamoDBBase):
             types=type_class(),
         )
         return self.graphql_execute(schema, **params)
-
-    def load_document(self, **kwargs:Dict[str, Any]) -> None:
-        """Process document through the knowledge extraction pipeline"""
-        try:
-            S3DataProcessor(setting=info.context.get("setting", {})).process_file(info=info, **kwargs)
-        except Exception as e:
-            info.context.get("logger").error(e)
-            raise e
