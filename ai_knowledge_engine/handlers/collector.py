@@ -3,6 +3,7 @@ import traceback
 import uuid
 import pendulum
 import logging
+import humps
 from graphene import ResolveInfo
 from silvaengine_utility import Utility
 from typing import Any,  Dict, List
@@ -159,14 +160,15 @@ class S3DataProcessor:
         """
         Invoke Lambda function
         """
+        
         return Utility.execute_graphql_query(
             logger=info.context.get("logger"),
             endpoint_id=info.context.get("endpoint_id"),
             funct="ai_knowledge_graphql",
-            query=Utility.generate_graphql_operation("loadDocument", "Mutation", self.config.graphql_schemes),
-            variables=kwargs,
+            query=Utility.generate_graphql_operation("loadDocument", "Mutation", self.config.graphql_schemes.get("ai_knowledge_graphql",{})),
+            variables=humps.camelize(kwargs),
             setting=info.context.get("setting"),
             connection_id=None,
-            test_mode=None,
+            test_mode=self.config.test_mode,
             aws_lambda=self.config.aws_lambda,
         )

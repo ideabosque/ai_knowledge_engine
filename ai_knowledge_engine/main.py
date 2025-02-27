@@ -13,6 +13,7 @@ from silvaengine_dynamodb_base import SilvaEngineDynamoDBBase
 
 from .handlers.handlers import handlers_init
 from .schema import Mutations, Query, type_class
+from .handlers.collector import S3DataProcessor
 
 
 def deploy() -> List:
@@ -151,3 +152,11 @@ class AIKnowledgeEngine(SilvaEngineDynamoDBBase):
             types=type_class(),
         )
         return self.graphql_execute(schema, **params)
+
+    def load_document(self, **kwargs:Dict[str, Any]) -> None:
+        """Process document through the knowledge extraction pipeline"""
+        try:
+            S3DataProcessor(setting=info.context.get("setting", {})).process_file(info=info, **kwargs)
+        except Exception as e:
+            info.context.get("logger").error(e)
+            raise e
