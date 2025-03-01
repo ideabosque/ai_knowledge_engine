@@ -1406,20 +1406,24 @@ def _generate_cypher_query(user_query: str, graph_schema: str) -> str:
         ],
     )
     cypher_query = response.choices[0].message.content
+    cypher_query = "Could you provide more details?"
     if cypher_query.startswith("Unable to retrieve the graph schema."):
         raise SchemaRetrievalError(cypher_query)
+
+    if cypher_query.startswith("Could you provide more details?"):
+        raise InsufficientDetailsError(cypher_query)
 
     return cypher_query
 
 
-# @retry(
-#     stop=stop_after_attempt(3),
-#     wait=wait_exponential(multiplier=1, min=4, max=10),
-#     retry=retry_if_exception_type(
-#         lambda e: not isinstance(e, (SchemaRetrievalError, InsufficientDetailsError))
-#     ),
-#     reraise=True,
-# )
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+    retry=retry_if_exception_type(
+        lambda e: not isinstance(e, (SchemaRetrievalError, InsufficientDetailsError))
+    ),
+    reraise=True,
+)
 def _query_graph(
     logger: logging.Logger,
     document_source: str,
@@ -1461,7 +1465,7 @@ def _query_vector(
 # Define the updated function and helper methods
 def _process_and_merge_results(
     logger: logging.Logger, **kwargs: Dict[str, Any]
-) -> List[Dict[str, Any]]:
+) -> KnowledgeRagType:
     # Extract parameters from kwargs
     user_query = kwargs.get("user_query")
     document_source = kwargs.get("document_source")
@@ -1494,16 +1498,11 @@ def _process_and_merge_results(
             knowledge_graph_metadata.merge_rule,
         )
 
-        return vector_results_total, merged_results
+        return KnowledgeRagType(results=merged_results, total=vector_results_total)
 
     # Retrieve the total count and first batch of results
     cypher_query = _generate_cypher_query(user_query, graph_schema)
     logger.info(f"Generated Cypher query: {cypher_query}")
-
-    if cypher_query.startswith("Could you provide more details?"):
-        return 0, [
-            f"{cypher_query}",
-        ]
 
     # Query functions
     graph_results_total, graph_results = _query_graph(
@@ -1515,7 +1514,7 @@ def _process_and_merge_results(
         kwargs.get("limit", 100),
     )
 
-    return graph_results_total, graph_results
+    return KnowledgeRagType(results=graph_results, total=graph_results_total)
 
 
 def request_decorator() -> Callable:
@@ -1560,7 +1559,7 @@ def request_decorator() -> Callable:
                 request = insert_update_request_handler(args[0], **cols)
                 args[0].context.get("logger").error(log)
 
-                return 0, []
+                raise e
 
         return wrapper_function
 
@@ -1571,8 +1570,7 @@ def request_decorator() -> Callable:
 def resolve_knowledge_rag_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> KnowledgeRagType:
-    total, results = _process_and_merge_results(info.context.get("logger"), **kwargs)
-    return KnowledgeRagType(results=results, total=total)
+    return _process_and_merge_results(info.context.get("logger"), **kwargs)
 
 
 def _get_data_adaptor_function(

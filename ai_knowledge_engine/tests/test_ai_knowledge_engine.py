@@ -699,7 +699,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                 "userQuery": "products related to carpet cleaning",
                 # "documentSource": "company_data",
                 "documentSource": "product",
-                # "isSimilaritySearch": False,
+                "isSimilaritySearch": False,
                 # "userQuery": """Find product relate to 'Hawk A1410SKIRTASSY Tigerhawk 1410 dust skirt'.""",
                 # "isSimilaritySearch": False,
             },
