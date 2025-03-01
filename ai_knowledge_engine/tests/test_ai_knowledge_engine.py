@@ -28,9 +28,9 @@ setting = {
             "class_name": "AIKnowledgeEngine",
         },
     },
-    "module_bucket_name": os.getenv("ADAPTOR_BUCKET_NAME"),
-    "module_zip_path": os.getenv("ADAPTOR_ZIP_PATH"),
-    "module_extract_path": os.getenv("ADAPTOR_EXTRACT_PATH"),
+    "module_bucket_name": os.getenv("module_bucket_name"),
+    "module_zip_path": os.getenv("module_zip_path"),
+    "module_extract_path": os.getenv("module_extract_path"),
     "EMBEDDING_MODEL": os.getenv("EMBEDDING_MODEL"),
     "graph_db_connector_config": {
         "module_name": "neo4j_graph_connector",
@@ -77,6 +77,11 @@ setting = {
                         "detailed_description",
                         "vector_score",
                     ],
+                    "vector_field": "content_vector",
+                },
+                "cleaning-stuff:product": {
+                    "k": "100",
+                    "return_fields": ["id", "name", "vector_score"],
                     "vector_field": "content_vector",
                 },
             },
@@ -247,6 +252,7 @@ sys.path.insert(1, f"{os.getenv('BASE_DIR')}/silvaengine_dynamodb_base")
 sys.path.insert(2, f"{os.getenv('BASE_DIR')}/silvaengine_utility")
 sys.path.insert(3, f"{os.getenv('BASE_DIR')}/neo4j_graph_connector")
 sys.path.insert(4, f"{os.getenv('BASE_DIR')}/redis_stack_connector")
+sys.path.insert(5, f"{os.getenv('BASE_DIR')}/silvaengine_base")
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger()
@@ -687,8 +693,10 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                 # "userQuery": """Find products with the same price range and rating group as "Daikin 1.5 Ton 5 Star Inverter Split AC (Copper, PM 2.5 Filter, 2022 Model, MTKM50U, White)".""",
                 # "userQuery": """Recommend products similar to "Daikin 1.5 Ton 5 Star Inverter Split AC (Copper, PM 2.5 Filter, 2022 Model, MTKM50U, White)".""",
                 # "userQuery": """Get all lost opportunities with account detail handled by Moses Frase.""",
-                "userQuery": """Find companies relate to 'GTX Plus Basic'.""",
-                "documentSource": "company_data",
+                # "userQuery": """Find companies relate to 'GTX Plus Basic'.""",
+                "userQuery": "Find products relatd to carpet cleaning.",
+                # "documentSource": "company_data",
+                "documentSource": "product",
                 # "isSimilaritySearch": False,
             },
         }
