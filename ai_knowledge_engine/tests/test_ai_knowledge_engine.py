@@ -683,7 +683,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_graphql_knowledge_rag(self):
         query = Utility.generate_graphql_operation("knowledgeRag", "Query", self.schema)
         logger.info(f"Query: {query}")
@@ -695,7 +695,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                 # "userQuery": """Recommend products similar to "Daikin 1.5 Ton 5 Star Inverter Split AC (Copper, PM 2.5 Filter, 2022 Model, MTKM50U, White)".""",
                 # "userQuery": """Get all lost opportunities with account detail handled by Moses Frase.""",
                 # "userQuery": """Find companies relate to 'GTX Plus Basic'.""",
-                "userQuery": "Find products relatd to carpet cleaning.",
+                # "userQuery": "Can you find products related to carpet cleaning?",
+                "userQuery": "products related to carpet cleaning",
                 # "documentSource": "company_data",
                 "documentSource": "product",
                 # "isSimilaritySearch": False,
@@ -727,7 +728,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_load_document(self):
         try:
             payload = {

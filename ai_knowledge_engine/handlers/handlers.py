@@ -1479,6 +1479,7 @@ def _process_and_merge_results(
             document_source
         )
         index_name = f"{knowledge_graph_metadata.endpoint_id}:{knowledge_graph_metadata.document_source}"
+        logger.info(f"Index name: {index_name}")
 
         if is_similarity_search:
             _kwargs = {
@@ -1561,7 +1562,6 @@ def request_decorator() -> Callable:
                 )
                 request = insert_update_request_handler(args[0], **cols)
                 args[0].context.get("logger").error(log)
-                raise e
 
         return wrapper_function
 
