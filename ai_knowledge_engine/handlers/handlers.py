@@ -1414,14 +1414,14 @@ def _generate_cypher_query(user_query: str, graph_schema: str) -> str:
     return cypher_query
 
 
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=4, max=10),
-    retry=retry_if_exception_type(
-        lambda e: not isinstance(e, (SchemaRetrievalError, InsufficientDetailsError))
-    ),
-    reraise=True,
-)
+# @retry(
+#     stop=stop_after_attempt(3),
+#     wait=wait_exponential(multiplier=1, min=4, max=10),
+#     retry=retry_if_exception_type(
+#         lambda e: not isinstance(e, (SchemaRetrievalError, InsufficientDetailsError))
+#     ),
+#     reraise=True,
+# )
 def _query_graph(
     logger: logging.Logger,
     document_source: str,
@@ -1467,7 +1467,6 @@ def _query_vector(
 def _process_and_merge_results(
     logger: logging.Logger, **kwargs: Dict[str, Any]
 ) -> List[Dict[str, Any]]:
-    # try:
     # Extract parameters from kwargs
     user_query = kwargs.get("user_query")
     document_source = kwargs.get("document_source")
@@ -1513,10 +1512,6 @@ def _process_and_merge_results(
     )
 
     return graph_results_total, graph_results
-
-    # except Exception as e:
-    #     logger.error(f"Error processing and merging results: {traceback.format_exc()}")
-    #     raise e
 
 
 def request_decorator() -> Callable:
