@@ -1467,58 +1467,56 @@ def _query_vector(
 def _process_and_merge_results(
     logger: logging.Logger, **kwargs: Dict[str, Any]
 ) -> List[Dict[str, Any]]:
-    try:
-        # Extract parameters from kwargs
-        user_query = kwargs.get("user_query")
-        document_source = kwargs.get("document_source")
-        request_uuid = kwargs.get("request_uuid")
-        is_similarity_search = kwargs.get("is_similarity_search")
+    # try:
+    # Extract parameters from kwargs
+    user_query = kwargs.get("user_query")
+    document_source = kwargs.get("document_source")
+    request_uuid = kwargs.get("request_uuid")
+    is_similarity_search = kwargs.get("is_similarity_search")
 
-        # Retrieve metadata and merge results
-        knowledge_graph_metadata = _get_enabled_knowledge_graph_metadata(
-            document_source
+    # Retrieve metadata and merge results
+    knowledge_graph_metadata = _get_enabled_knowledge_graph_metadata(document_source)
+    index_name = f"{knowledge_graph_metadata.endpoint_id}:{knowledge_graph_metadata.document_source}"
+    logger.info(f"Index name: {index_name}")
+
+    if is_similarity_search:
+        _kwargs = {
+            "vector_field": kwargs.get("vector_field"),
+            "fields_to_return": kwargs.get("fields_to_return"),
+            **{
+                key: kwargs[key]
+                for key in ["filter_conditions", "top_k", "result_offset", "limit"]
+                if key in kwargs
+            },
+        }
+
+        vector_results_total, vector_results = _query_vector(
+            logger, user_query, index_name, **_kwargs
         )
-        index_name = f"{knowledge_graph_metadata.endpoint_id}:{knowledge_graph_metadata.document_source}"
-        logger.info(f"Index name: {index_name}")
 
-        if is_similarity_search:
-            _kwargs = {
-                "vector_field": kwargs.get("vector_field"),
-                "fields_to_return": kwargs.get("fields_to_return"),
-                **{
-                    key: kwargs[key]
-                    for key in ["filter_conditions", "top_k", "result_offset", "limit"]
-                    if key in kwargs
-                },
-            }
-
-            vector_results_total, vector_results = _query_vector(
-                logger, user_query, index_name, **_kwargs
-            )
-
-            merged_results = _lookup_and_merge_results(
-                logger,
-                Utility.json_loads(Utility.json_dumps(vector_results)),
-                knowledge_graph_metadata.merge_rule,
-            )
-
-            return vector_results_total, merged_results
-
-        # Query functions
-        graph_results_total, graph_results = _query_graph(
+        merged_results = _lookup_and_merge_results(
             logger,
-            document_source,
-            request_uuid,
-            user_query,
-            kwargs.get("offset", 0),
-            kwargs.get("limit", 100),
+            Utility.json_loads(Utility.json_dumps(vector_results)),
+            knowledge_graph_metadata.merge_rule,
         )
 
-        return graph_results_total, graph_results
+        return vector_results_total, merged_results
 
-    except Exception as e:
-        logger.error(f"Error processing and merging results: {traceback.format_exc()}")
-        raise e
+    # Query functions
+    graph_results_total, graph_results = _query_graph(
+        logger,
+        document_source,
+        request_uuid,
+        user_query,
+        kwargs.get("offset", 0),
+        kwargs.get("limit", 100),
+    )
+
+    return graph_results_total, graph_results
+
+    # except Exception as e:
+    #     logger.error(f"Error processing and merging results: {traceback.format_exc()}")
+    #     raise e
 
 
 def request_decorator() -> Callable:
@@ -1562,6 +1560,8 @@ def request_decorator() -> Callable:
                 )
                 request = insert_update_request_handler(args[0], **cols)
                 args[0].context.get("logger").error(log)
+
+                return 0, []
 
         return wrapper_function
 
