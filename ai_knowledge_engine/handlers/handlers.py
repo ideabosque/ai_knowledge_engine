@@ -1406,7 +1406,7 @@ def _generate_cypher_query(user_query: str, graph_schema: str) -> str:
         ],
     )
     cypher_query = response.choices[0].message.content
-    cypher_query = "Could you provide more details?"
+
     if cypher_query.startswith("Unable to retrieve the graph schema."):
         raise SchemaRetrievalError(cypher_query)
 
