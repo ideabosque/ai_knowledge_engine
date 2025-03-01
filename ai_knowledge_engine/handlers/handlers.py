@@ -1501,7 +1501,9 @@ def _process_and_merge_results(
     logger.info(f"Generated Cypher query: {cypher_query}")
 
     if cypher_query.startswith("Could you provide more details?"):
-        return 0, [cypher_query]
+        return 0, [
+            f"{cypher_query}",
+        ]
 
     # Query functions
     graph_results_total, graph_results = _query_graph(
