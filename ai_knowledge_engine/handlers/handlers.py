@@ -1408,8 +1408,6 @@ def _generate_cypher_query(user_query: str, graph_schema: str) -> str:
     cypher_query = response.choices[0].message.content
     if cypher_query.startswith("Unable to retrieve the graph schema."):
         raise SchemaRetrievalError(cypher_query)
-    if cypher_query.startswith("Could you provide more details?"):
-        raise InsufficientDetailsError(cypher_query)
 
     return cypher_query
 
@@ -1426,16 +1424,13 @@ def _query_graph(
     logger: logging.Logger,
     document_source: str,
     request_uuid: str,
-    user_query: str,
+    cypher_query: str,
     offset: int,
     limit: int,
 ) -> Tuple[int, List[Dict[str, Any]]]:
     """Executes a query on the graph database."""
     try:
         # Retrieve the total count and first batch of results
-        cypher_query = _generate_cypher_query(user_query, graph_schema)
-        logger.info(f"Generated Cypher query: {cypher_query}")
-
         request = RequestModel.get(document_source, request_uuid)
         request.cypher_query = cypher_query
         request.save()
@@ -1501,12 +1496,19 @@ def _process_and_merge_results(
 
         return vector_results_total, merged_results
 
+    # Retrieve the total count and first batch of results
+    cypher_query = _generate_cypher_query(user_query, graph_schema)
+    logger.info(f"Generated Cypher query: {cypher_query}")
+
+    if cypher_query.startswith("Could you provide more details?"):
+        return 0, [cypher_query]
+
     # Query functions
     graph_results_total, graph_results = _query_graph(
         logger,
         document_source,
         request_uuid,
-        user_query,
+        cypher_query,
         kwargs.get("offset", 0),
         kwargs.get("limit", 100),
     )
