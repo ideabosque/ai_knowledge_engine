@@ -273,7 +273,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             setting=setting,
             test_mode=test_mode,
         )
-        print(setting)
+        # print(setting)
+        print(self.schema)
         logger.info("Initiate AIKnowledgeEngineTest ...")
 
     def tearDown(self):
@@ -682,7 +683,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_knowledge_rag(self):
         query = Utility.generate_graphql_operation("knowledgeRag", "Query", self.schema)
         logger.info(f"Query: {query}")
@@ -697,6 +698,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                 "userQuery": "Find products relatd to carpet cleaning.",
                 # "documentSource": "company_data",
                 "documentSource": "product",
+                # "isSimilaritySearch": False,
+                # "userQuery": """Find product relate to 'Hawk A1410SKIRTASSY Tigerhawk 1410 dust skirt'.""",
                 # "isSimilaritySearch": False,
             },
         }
@@ -724,27 +727,61 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_load_document(self):
         try:
             payload = {
                 "query": """mutation loadDocument(
                     $documentSource: String!
-                    $documentType: String!
+                    $endpointId: String!
                     $objectKey: String!
+                    $skipHeader: Boolean
+                    $position: Int
+                    $embeddingAttributes: [String!]
+                    $graphSchemeAttributes: JSON!
+                    $vectorSchemeAttributes: JSON!
+                    $maxRetries: Int
+                    $editor: String
+                    $chunkSizeForUnstructured: Int
                 ) {
                     loadDocument (
                         documentSource: $documentSource
-                        documentType: $documentType
+                        endpointId: $endpointId
                         objectKey: $objectKey
+                        skipHeader: $skipHeader
+                        position: $position
+                        embeddingAttributes: $embeddingAttributes
+                        graphSchemeAttributes: $graphSchemeAttributes
+                        vectorSchemeAttributes: $vectorSchemeAttributes
+                        maxRetries: $maxRetries
+                        editor: $editor
+                        chunkSizeForUnstructured: $chunkSizeForUnstructured
                     ) {
                         ok
                     }
                 }""",
                 "variables": {
-                    "documentSource": "load_test",
-                    "documentType": "md",
+                    "documentSource": "product",
+                    "endpointId": "cleaning-stuff",
                     "objectKey": "companies/cleaning-stuff-products.csv",
+                    "skipHeader": True,
+                    "embeddingAttributes": [
+                        "product_name",
+                        "meta_keywords",
+                        "meta_description",
+                        "name",
+                        "keywords",
+                        "description",
+                    ],
+                    "graphSchemeAttributes": {
+                        "product_name": "name",
+                        "meta_keywords": "keywords",
+                        "meta_description": "description",
+                        "price": "price",
+                        "brand_name": "brand",
+                        "product_code/sku": "sku",
+                    },
+                    "vectorSchemeAttributes": {"product_name": "name"},
                 },
             }
             response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)

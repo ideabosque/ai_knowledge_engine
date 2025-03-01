@@ -13,6 +13,7 @@ from silvaengine_dynamodb_base import SilvaEngineDynamoDBBase
 
 from .handlers.handlers import handlers_init
 from .schema import Mutations, Query, type_class
+from .handlers.collector import S3DataProcessor
 
 
 def deploy() -> List:

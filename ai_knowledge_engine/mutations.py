@@ -6,9 +6,7 @@ __author__ = "bibow"
 
 import traceback
 from typing import Any, Dict
-
 from graphene import Boolean, DateTime, Field, Float, Int, List, Mutation, String
-
 from silvaengine_utility import JSON
 
 from .handlers.handlers import (
@@ -33,7 +31,7 @@ from .types import (
     KnowledgeGraphMetadataType,
     RequestType,
 )
-from .handlers.collection import S3DataProcessor
+from .handlers.collector import S3DataProcessor
 
 
 class InsertUpdateDocument(Mutation):
@@ -334,10 +332,17 @@ class LoadDocument(Mutation):
 
     class Arguments:
         document_source = String(required=True)
-        document_type = String(required=True)
+        endpoint_id = String(required=True)
         object_key = String(required=True)
-        position = Int(required=False)
-        include_header = Boolean(required=False)
+        position = Int(required=False,default_value=0)
+        skip_header = Boolean(required=False,default_value=True)
+        embedding_attributes = List(String, required=False, default_value=[])
+        graph_scheme_attributes = JSON(required=False, default_value={})
+        vector_scheme_attributes = JSON(required=False, default_value={})
+        max_retries = Int(required=False, default_value=3)
+        editor = String(required=False, default_value="")
+        chunk_size_for_unstructured = Int(required=False, default_value=500)
+        document_external_id = String(required=False, default_value=None)
 
     @staticmethod
     def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "InsertUpdateRequest":
