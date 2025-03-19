@@ -6,9 +6,12 @@ __author__ = "bibow"
 
 import traceback
 from typing import Any, Dict
+
 from graphene import Boolean, DateTime, Field, Float, Int, List, Mutation, String
+
 from silvaengine_utility import JSON
 
+from .handlers.collector import S3DataProcessor
 from .handlers.handlers import (
     delete_data_source_handler,
     delete_document_handler,
@@ -31,7 +34,6 @@ from .types import (
     KnowledgeGraphMetadataType,
     RequestType,
 )
-from .handlers.collector import S3DataProcessor
 
 
 class InsertUpdateDocument(Mutation):
@@ -254,7 +256,6 @@ class InsertUpdateDataSource(Mutation):
         root: Any, info: Any, **kwargs: Dict[str, Any]
     ) -> "InsertUpdateDataSource":
         try:
-            kwargs["endpoint_id"] = info.context["endpoint_id"]
             data_source = insert_update_data_source_handler(info, **kwargs)
         except Exception as e:
             log = traceback.format_exc()
@@ -273,7 +274,6 @@ class DeleteDataSource(Mutation):
     @staticmethod
     def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "DeleteDataSource":
         try:
-            kwargs["endpoint_id"] = info.context["endpoint_id"]
             ok = delete_data_source_handler(info, **kwargs)
         except Exception as e:
             log = traceback.format_exc()
@@ -334,8 +334,8 @@ class LoadDocument(Mutation):
         document_source = String(required=True)
         endpoint_id = String(required=True)
         object_key = String(required=True)
-        position = Int(required=False,default_value=0)
-        skip_header = Boolean(required=False,default_value=True)
+        position = Int(required=False, default_value=0)
+        skip_header = Boolean(required=False, default_value=True)
         embedding_attributes = List(String, required=False, default_value=[])
         graph_scheme_attributes = JSON(required=False, default_value={})
         vector_scheme_attributes = JSON(required=False, default_value={})
@@ -347,7 +347,9 @@ class LoadDocument(Mutation):
     @staticmethod
     def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "InsertUpdateRequest":
         try:
-            S3DataProcessor(setting=info.context.get("setting", {})).process_file(info=info, **kwargs)
+            S3DataProcessor(setting=info.context.get("setting", {})).process_file(
+                info=info, **kwargs
+            )
         except Exception as e:
             log = traceback.format_exc()
             info.context.get("logger").error(log)
