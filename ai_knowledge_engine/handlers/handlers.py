@@ -1575,12 +1575,12 @@ def resolve_knowledge_rag_handler(
 
 def _get_data_adaptor_function(
     logger: logging.Logger,
-    data_source_type: str,
+    endpoint_id: str,
     data_source_name: str,
     function_name: str,
 ) -> Optional[Callable]:
     try:
-        data_source = get_data_source(data_source_type, data_source_name)
+        data_source = get_data_source(endpoint_id, data_source_name)
 
         configuration = (
             data_source.configuration.__dict__["attribute_values"]
@@ -1607,7 +1607,6 @@ def _get_data_adaptor_function(
 def resolve_data_view_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> DataViewType:
-    data_source_type = kwargs.get("data_source_type")
     data_source_name = kwargs.get("data_source_name")
     data_view_name = kwargs.get("data_view_name")
     parameters = kwargs.get("parameters", {})
@@ -1615,7 +1614,7 @@ def resolve_data_view_handler(
     try:
         data_view_function = _get_data_adaptor_function(
             info.context.get("logger"),
-            data_source_type,
+            info.context.get("endpoint_id"),
             data_source_name,
             "get_data_view",
         )
