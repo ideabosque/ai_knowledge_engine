@@ -2,7 +2,7 @@
 import json, pendulum, uuid, time
 from typing import Any, Dict, List
 from .initializer import Initializer
-from ..models import DocumentModel
+from ..models.document import DocumentModel
 
 class Operator:
     def __init__(
