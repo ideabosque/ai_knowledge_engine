@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 from graphene import ResolveInfo
 
-from ..handlers.handlers import resolve_knowledge_rag_handler
+from ..handlers.knowledge_rag import resolve_knowledge_rag_handler
 from ..types.knowledge_rag import KnowledgeRagType
 
 

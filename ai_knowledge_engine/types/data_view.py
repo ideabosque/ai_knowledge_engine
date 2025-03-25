@@ -6,10 +6,6 @@ __author__ = "bibow"
 
 from graphene import (
     Boolean,
-    DateTime,
-    Decimal,
-    Field,
-    Float,
     Int,
     List,
     ObjectType,

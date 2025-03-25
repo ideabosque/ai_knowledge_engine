@@ -390,7 +390,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_document_process_task(self):
         query = Utility.generate_graphql_operation(
             "documentProcessTask", "Query", self.schema
@@ -670,7 +670,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_graphql_request_list(self):
         query = Utility.generate_graphql_operation("requestList", "Query", self.schema)
         logger.info(f"Query: {query}")

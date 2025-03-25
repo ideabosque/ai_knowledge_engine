@@ -5,21 +5,11 @@ from __future__ import print_function
 __author__ = "bibow"
 
 import functools
-import json
 import logging
-import os
-import re
-import sys
 import traceback
-import uuid
-import zipfile
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Tuple
 
-import boto3
-import pendulum
-import tiktoken
 from graphene import ResolveInfo
-from openai import OpenAI
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -30,198 +20,15 @@ from tenacity import (
 from silvaengine_utility import Utility
 
 from ..models.request import RequestModel, insert_update_request
-from ..models.data_source import get_data_source
 from ..models.knowledge_graph_metadata import _get_enabled_knowledge_graph_metadata
 from ..types.knowledge_rag import KnowledgeRagType
-from ..types.data_view import DataViewType
-
-
-class SchemaRetrievalError(Exception):
-    """Raised when the graph schema cannot be retrieved."""
-
-    pass
-
-
-class InsufficientDetailsError(Exception):
-    """Raised when insufficient details are provided in the user query."""
-
-    pass
-
-
-openai_client = None
-openai_model = None
-graph_db_connector = None
-vector_db_connector = None
-redis_index_config = None
-graph_schema = None
-system_contents = None
-module_bucket_name = None
-module_zip_path = None
-module_extract_path = None
-aws_s3 = None
-aws_s3_bucket = None
-embedding_model = None
-
-
-def handlers_init(logger: logging.Logger, **setting: Dict[str, Any]) -> None:
-    try:
-        global embedding_model, openai_model, system_contents
-        global module_bucket_name, module_zip_path, module_extract_path
-        global aws_s3, aws_s3_bucket
-        global openai_client
-        global graph_db_connector, graph_schema
-        global vector_db_connector, redis_index_config
-
-        _setup_parameters(setting)
-        _setup_function_paths(setting)
-        _initialize_aws_services(setting)
-        _initialize_openai_client(setting)
-        _initialize_graph_database(logger, setting)
-        _initialize_vector_database(logger, setting)
-
-    except Exception as e:
-        log = traceback.format_exc()
-        logger.error(log)
-        raise e
-
-
-def _setup_parameters(setting: Dict[str, Any]) -> None:
-    global embedding_model, openai_model, system_contents
-
-    if "EMBEDDING_MODEL" in setting:
-        embedding_model = setting["EMBEDDING_MODEL"]
-    if "openai_model" in setting:
-        openai_model = setting["openai_model"]
-    if "system_contents" in setting:
-        system_contents = setting["system_contents"]
-
-
-def _initialize_aws_services(setting: Dict[str, Any]) -> None:
-    global aws_s3, aws_s3_bucket
-
-    if all(
-        setting.get(k)
-        for k in ["region_name", "aws_access_key_id", "aws_secret_access_key"]
-    ):
-        aws_credentials = {
-            "region_name": setting["region_name"],
-            "aws_access_key_id": setting["aws_access_key_id"],
-            "aws_secret_access_key": setting["aws_secret_access_key"],
-        }
-    else:
-        aws_credentials = {}
-
-    aws_s3_bucket = setting.get("swap_bucket_name")
-    aws_s3 = boto3.client("s3", **aws_credentials)
-
-
-def _initialize_openai_client(setting: Dict[str, Any]) -> None:
-    global openai_client
-
-    if "openai_api_key" in setting:
-        openai_setting = {"api_key": setting["openai_api_key"]}
-
-        if "openai_base_url" in setting:
-            openai_setting.update({"base_url": setting["openai_base_url"]})
-
-        openai_client = OpenAI(**openai_setting)
-
-
-def _initialize_graph_database(logger: logging.Logger, setting: Dict[str, Any]) -> None:
-    global graph_db_connector, graph_schema
-    if "graph_db_connector_config" in setting:
-        graph_db_connector = _get_class_object(
-            logger,
-            setting["graph_db_connector_config"]["module_name"],
-            setting["graph_db_connector_config"]["class_name"],
-            **setting["graph_db_connector_config"]["setting"],
-        )
-        graph_schema = graph_db_connector.get_graph_schema()
-
-
-def _initialize_vector_database(
-    logger: logging.Logger, setting: Dict[str, Any]
-) -> None:
-    global vector_db_connector, redis_index_config
-    if "vector_db_connector_config" in setting:
-        vector_db_connector = _get_class_object(
-            logger,
-            setting["vector_db_connector_config"]["module_name"],
-            setting["vector_db_connector_config"]["class_name"],
-            **dict(
-                setting["vector_db_connector_config"]["setting"],
-                **{
-                    "openai_api_key": setting["openai_api_key"],
-                    "EMBEDDING_MODEL": embedding_model,
-                },
-            ),
-        )
-
-
-def _setup_function_paths(setting: Dict[str, Any]) -> None:
-    global module_bucket_name, module_zip_path, module_extract_path
-    module_bucket_name = setting.get("module_bucket_name")
-    module_zip_path = setting.get("module_zip_path", "/tmp/adaptor_zips")
-    module_extract_path = setting.get("module_extract_path", "/tmp/adaptors")
-    print(module_zip_path, module_extract_path)
-    os.makedirs(module_zip_path, exist_ok=True)
-    os.makedirs(module_extract_path, exist_ok=True)
-
-
-def _module_exists(logger: logging.Logger, module_name: str) -> bool:
-    """Check if the module exists in the specified path."""
-    module_dir = os.path.join(module_extract_path, module_name)
-    print(f"----------------{module_dir}-----")
-    if os.path.exists(module_dir) and os.path.isdir(module_dir):
-        logger.info(f"Module {module_name} found in {module_extract_path}.")
-        return True
-    logger.info(f"Module {module_name} not found in {module_extract_path}.")
-    return False
-
-
-def _download_and_extract_module(logger: logging.Logger, module_name: str) -> None:
-    """Download and extract the module from S3 if not already extracted."""
-    key = f"{module_name}.zip"
-    zip_path = f"{module_zip_path}/{key}"
-
-    logger.info(f"Downloading module from S3: bucket={module_bucket_name}, key={key}")
-    aws_s3.download_file(module_bucket_name, key, zip_path)
-    logger.info(f"Downloaded {key} from S3 to {zip_path}")
-
-    # Extract the ZIP file
-    with zipfile.ZipFile(zip_path, "r") as zip_ref:
-        zip_ref.extractall(module_extract_path)
-    logger.info(f"Extracted module to {module_extract_path}")
-
-
-def _get_class_object(
-    logger: logging.Logger, module_name: str, class_name: str, **setting: Dict[str, Any]
-) -> Optional[Callable]:
-    try:
-        if not _module_exists(logger, module_name):
-            # Download and extract the module if it doesn't exist
-            _download_and_extract_module(logger, module_name)
-
-        # Add the extracted module to sys.path
-        module_path = f"{module_extract_path}/{module_name}"
-        if module_path not in sys.path:
-            sys.path.append(module_path)
-
-        _class = getattr(__import__(module_name), class_name)
-
-        return _class(
-            logger,
-            **Utility.json_loads(Utility.json_dumps(setting)),
-        )
-    except Exception as e:
-        log = traceback.format_exc()
-        logger.error(log)
-        raise e
+from .config import Config
+from .error import InsufficientDetailsError, SchemaRetrievalError
 
 
 def _get_embedding(text: str) -> List[Dict[str, Any]]:
     text = text.replace("\n", " ")
-    res = openai_client.embeddings.create(input=[text], model=embedding_model)
+    res = Config.openai_client.embeddings.create(input=[text], model=Config.embedding_model)
     return res.data[0].embedding
 
 
@@ -259,13 +66,13 @@ def _lookup_and_merge_results(
 
         cypher_query = _generate_cypher_query(
             f"""Retrieve the node ({graph_merge_node}) associated with `{graph_merge_key}` within the specified `{transaction_ids}`. Return the node as `node`.""",
-            graph_schema,
+            Config.graph_schema,
         )
 
         logger.info(f"Generated Cypher query for bulk lookup: {cypher_query}")
 
         # Execute the Cypher query
-        _, graph_results = graph_db_connector.execute_cypher_query_with_pagination(
+        _, graph_results = Config.graph_db_connector.execute_cypher_query_with_pagination(
             cypher_query,
             limit=len(transaction_ids),
             skip=0,
@@ -313,16 +120,16 @@ def _lookup_and_merge_results(
 
 def _is_similarity_search(user_query: str) -> bool:
     """Check if the user query indicates a similarity search."""
-    response = openai_client.chat.completions.create(
-        model=openai_model,
+    response = Config.openai_client.chat.completions.create(
+        model=Config.openai_model,
         messages=[
             {
                 "role": "system",
-                "content": system_contents["is_similarity_search"],
+                "content": Config.system_contents["is_similarity_search"],
             },
             {
                 "role": "user",
-                "content": f"Is this query ({user_query}) a similarity search based on schema: ({graph_schema})?",
+                "content": f"Is this query ({user_query}) a similarity search based on schema: ({Config.graph_schema})?",
             },
         ],
     )
@@ -340,12 +147,12 @@ def _is_similarity_search(user_query: str) -> bool:
 
 # Use AI to generate Cypher query dynamically based on schema
 def _generate_cypher_query(user_query: str, graph_schema: str) -> str:
-    response = openai_client.chat.completions.create(
-        model=openai_model,
+    response = Config.openai_client.chat.completions.create(
+        model=Config.openai_model,
         messages=[
             {
                 "role": "system",
-                "content": system_contents["generate_cypher_query"],
+                "content": Config.system_contents["generate_cypher_query"],
             },
             {
                 "role": "user",
@@ -368,7 +175,7 @@ def _generate_cypher_query(user_query: str, graph_schema: str) -> str:
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=4, max=10),
     retry=retry_if_exception_type(
-        lambda e: not isinstance(e, (SchemaRetrievalError, InsufficientDetailsError))
+        (SchemaRetrievalError, InsufficientDetailsError)
     ),
     reraise=True,
 )
@@ -387,7 +194,7 @@ def _query_graph(
         request.cypher_query = cypher_query
         request.save()
 
-        return graph_db_connector.execute_cypher_query_with_pagination(
+        return Config.graph_db_connector.execute_cypher_query_with_pagination(
             cypher_query,
             limit=limit,
             skip=offset,
@@ -404,7 +211,7 @@ def _query_vector(
     """Executes a query on the vector search engine."""
     try:
         query_vector = _get_embedding(user_query)
-        return vector_db_connector.search_vector(query_vector, index_name, **kwargs)
+        return Config.vector_db_connector.search_vector(query_vector, index_name, **kwargs)
     except Exception as e:
         logger.error(f"Vector query failed: {traceback.format_exc()}")
         raise e
@@ -449,7 +256,7 @@ def _process_and_merge_results(
         return KnowledgeRagType(results=merged_results, total=vector_results_total)
 
     # Retrieve the total count and first batch of results
-    cypher_query = _generate_cypher_query(user_query, graph_schema)
+    cypher_query = _generate_cypher_query(user_query, Config.graph_schema)
     logger.info(f"Generated Cypher query: {cypher_query}")
 
     # Query functions
@@ -519,57 +326,3 @@ def resolve_knowledge_rag_handler(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> KnowledgeRagType:
     return _process_and_merge_results(info.context.get("logger"), **kwargs)
-
-
-def _get_data_adaptor_function(
-    logger: logging.Logger,
-    endpoint_id: str,
-    data_source_name: str,
-    function_name: str,
-) -> Optional[Callable]:
-    try:
-        data_source = get_data_source(endpoint_id, data_source_name)
-
-        configuration = (
-            data_source.configuration.__dict__["attribute_values"]
-            if data_source.__dict__["attribute_values"].get("configuration")
-            else {}
-        )
-
-        setting = dict(configuration, **{"data_views": data_source.data_views})
-
-        class_object = _get_class_object(
-            logger, data_source.module_name, data_source.class_name, **setting
-        )
-
-        return getattr(
-            class_object,
-            function_name,
-        )
-    except Exception as e:
-        log = traceback.format_exc()
-        logger.error(log)
-        raise e
-
-
-def resolve_data_view_handler(
-    info: ResolveInfo, **kwargs: Dict[str, Any]
-) -> DataViewType:
-    data_source_name = kwargs.get("data_source_name")
-    data_view_name = kwargs.get("data_view_name")
-    parameters = kwargs.get("parameters", {})
-
-    try:
-        data_view_function = _get_data_adaptor_function(
-            info.context.get("logger"),
-            info.context.get("endpoint_id"),
-            data_source_name,
-            "get_data_view",
-        )
-        data_view = data_view_function(data_view_name, **parameters)
-
-        return DataViewType(**data_view)
-    except Exception as e:
-        log = traceback.format_exc()
-        info.context.get("logger").error(log)
-        raise e

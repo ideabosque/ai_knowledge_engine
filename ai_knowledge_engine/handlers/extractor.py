@@ -1,12 +1,11 @@
 
 import json, re
 from typing import Any, Dict, List
-from .initializer import Initializer
+from .config import Config
 
 class Extractor:
-    def __init__(self, initializer:Initializer, document_source: str, attributes: Dict[str, Any]):
-        self.config = initializer
-        self.graph_scheme = initializer.graph_db_connector.get_graph_schema()
+    def __init__(self, document_source: str, attributes: Dict[str, Any]):
+        self.graph_scheme = Config.graph_db_connector.get_graph_schema()
         self.graph_scheme_attributes = attributes
         self.attributes = list(attributes.values())
 
@@ -39,8 +38,8 @@ class Extractor:
         ...
     ]
 }}"""
-            response = self.config.openai_client.chat.completions.create(
-                model=self.config.openai_model,
+            response = Config.openai_client.chat.completions.create(
+                model=Config.openai_model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
@@ -81,8 +80,8 @@ class Extractor:
         """
         try:
             prompt = f"Please tokenize the user-submitted text and return it strictly as a JSON array. "
-            response = self.config.openai_client.chat.completions.create(
-                model=self.config.openai_model,
+            response = Config.openai_client.chat.completions.create(
+                model=Config.openai_model,
                 messages=[
                     {"role": "system", "content":prompt},
                     {"role": "user", "content": self.clean_data(text)}

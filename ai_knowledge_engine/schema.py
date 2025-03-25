@@ -34,6 +34,7 @@ from .queries.document_process_entity import resolve_document_process_entity, re
 from .queries.document_process_task import resolve_document_process_task, resolve_document_process_task_list
 from .queries.knowledge_graph_metadata import resolve_knowledge_graph_metadata, resolve_knowledge_graph_metadata_list
 from .queries.request import resolve_request, resolve_request_list
+from .queries.knowledge_rag import resolve_knowledge_rag
 
 from .types.data_source import DataSourceType, DataSourceListType
 from .types.document import DocumentType, DocumentListType
