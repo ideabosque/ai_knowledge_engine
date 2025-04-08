@@ -110,11 +110,14 @@ class Operator:
             if len(data) < 1:
                 data = obj
 
-            embeddings = Config.openai_client.embeddings.create(
-                input=json.dumps(data), model=Config.embedding_model
-            )
-            
-            return embeddings.data[0].embedding
+            if Config.process_model == "openai":
+                embeddings = Config.openai_client.embeddings.create(
+                    input=json.dumps(data), model=Config.embedding_model
+                )
+                return embeddings.data[0].embedding
+            else:
+                embeddings = Config.spacy_nlp(json.dumps(data)).vector
+                return embeddings
         except Exception as e:
             print(e)
             return None

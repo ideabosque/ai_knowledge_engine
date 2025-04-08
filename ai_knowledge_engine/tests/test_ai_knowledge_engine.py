@@ -221,6 +221,8 @@ Please the return the extracted data in the following format:
     "endpoint_id": os.getenv("ENDPOINT_ID"),
     "test_mode": os.getenv("TEST_MODE"),
     "swap_bucket_name": os.getenv("SWAP_BUCKET_NAME"),
+    "process_model": os.getenv("PROCESS_MODEL"),
+    "spacy_model": os.getenv("SPACY_MODEL"),
     "default_scheme": {
         "entities": {
             "product": {"attributes": ["product name", "sku"]},
@@ -670,7 +672,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_graphql_request_list(self):
         query = Utility.generate_graphql_operation("requestList", "Query", self.schema)
         logger.info(f"Query: {query}")
@@ -696,11 +698,11 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                 # "userQuery": """Get all lost opportunities with account detail handled by Moses Frase.""",
                 # "userQuery": """Find companies relate to 'GTX Plus Basic'.""",
                 # "userQuery": "Can you find products related to carpet cleaning?",
-                "userQuery": "products related to carpet cleaning",
+                # "userQuery": "products related to carpet cleaning",
                 # "documentSource": "company_data",
                 "documentSource": "product",
-                "isSimilaritySearch": False,
-                # "userQuery": """Find product relate to 'Hawk A1410SKIRTASSY Tigerhawk 1410 dust skirt'.""",
+                "isSimilaritySearch": True,
+                "userQuery": """Find product relate to 'Hawk A1410SKIRTASSY Tigerhawk 1410 dust skirt'.""",
                 # "isSimilaritySearch": False,
             },
         }
@@ -728,7 +730,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_load_document(self):
         try:
             payload = {
@@ -764,7 +766,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                 "variables": {
                     "documentSource": "product",
                     "endpointId": "cleaning-stuff",
-                    "objectKey": "companies/cleaning-stuff-products.csv",
+                    # "objectKey": "companies/cleaning-stuff-products.csv",
+                    "objectKey": "cleaning-stuff-products-test.csv",
                     "skipHeader": True,
                     "embeddingAttributes": [
                         "product_name",

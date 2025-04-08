@@ -1,6 +1,5 @@
 import boto3, logging, sys, os, traceback, zipfile
 from typing import Dict, List, Any, Optional, Callable
-from openai import OpenAI
 from silvaengine_utility import Utility
 
 class Config:
@@ -20,6 +19,9 @@ class Config:
     aws_lambda = None
     graphql_schemes = {}
     test_mode = None
+    process_model = None
+    spacy_nlp = None
+    spacy_nlp_trf = None
 
     @classmethod
     def initialize(cls, logger: logging.Logger, **setting: Dict[str, Any]) -> None:
@@ -33,7 +35,7 @@ class Config:
             cls._setup_parameters(setting)
             cls._setup_function_paths(setting)
             cls._initialize_aws_services(setting)
-            cls._initialize_openai_client(setting)
+            cls._initialize_process_model(setting)
             cls._initialize_graph_database(logger, setting)
             cls._initialize_vector_database(logger, setting)
             # cls._initialize_fetch_graphql_schema(
@@ -49,6 +51,7 @@ class Config:
 
     @classmethod
     def _setup_parameters(cls, setting: Dict[str, Any]) -> None:
+        cls.process_model = setting.get("process_model", "spacy")
         if "EMBEDDING_MODEL" in setting:
             cls.embedding_model = setting["EMBEDDING_MODEL"]
         if "openai_model" in setting:
@@ -88,7 +91,28 @@ class Config:
 
 
     @classmethod
+    def _initialize_process_model(cls, setting: Dict[str, Any]) -> None:
+        if "openai" == cls.process_model:
+            cls._initialize_openai_client(setting)
+        elif "spacy" == cls.process_model:
+            cls._initialize_spacy_compenent(setting)
+
+
+    @classmethod
+    def _initialize_spacy_compenent(cls, setting: Dict[str, Any]) -> None:
+        import spacy
+
+        if "spacy_model" in setting:
+            cls.spacy_nlp = spacy.load(setting["spacy_model"])
+            print(f"cls.spacy_nlp------{cls.spacy_nlp}")
+        cls.spacy_nlp_trf = spacy.load("en_core_web_trf")
+        print(f"cls.spacy_nlp_trf------{cls.spacy_nlp_trf}")
+
+
+    @classmethod
     def _initialize_openai_client(cls, setting: Dict[str, Any]) -> None:
+        from openai import OpenAI
+
         if "openai_api_key" in setting:
             openai_setting = {"api_key": setting["openai_api_key"]}
 
