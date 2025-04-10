@@ -2,6 +2,9 @@
 import json, re
 from typing import Any, Dict, List
 from .config import Config
+from spacy.matcher import PhraseMatcher, Matcher
+from spacy.tokens import Span
+
 
 class Extractor:
     def __init__(self, document_source: str, attributes: Dict[str, Any]):
@@ -38,6 +41,7 @@ class Extractor:
         ...
     ]
 }}"""
+
             if Config.process_model == "openai":
                 response = Config.openai_client.chat.completions.create(
                     model=Config.openai_model,
@@ -50,7 +54,8 @@ class Extractor:
                 return json.loads(response.choices[0].message.content)
             else :
                 return self.extract_entities_relations(user_prompt, system_prompt)
-        except:
+        except Exception as e:
+            print(f"Error in extract_entities: {e}")
             return None
 
     
@@ -82,8 +87,8 @@ class Extractor:
         Segmentation of unstructured data using OpenAI
         """
         try:
-            prompt = f"Please tokenize the user-submitted text and return it strictly as a JSON array. "
             if Config.process_model == "openai":
+                prompt = f"Please tokenize the user-submitted text and return it strictly as a JSON array. "
                 response = Config.openai_client.chat.completions.create(
                     model=Config.openai_model,
                     messages=[
@@ -94,120 +99,43 @@ class Extractor:
 
                 return json.loads(response.choices[0].message.content)
             else :
-                return self._transformers_tokenize_text(prompt, text)
+                return self._spacy_tokenize_text(text)
         except json.JSONDecodeError:
             return []
 
 
-    def _transformers_tokenize_text(self, prompt: str, text: str) -> List[str]:
-        # from transformers import AutoModelForCausalLM, AutoTokenizer
+    def _spacy_tokenize_text(self, text: str) -> List[str]:
+        doc = Config.spacy_nlp_trf(text)
+        tokens = []
+        for token in doc:
+            tokens.append(token.text,)
 
-        # tokenizer = AutoTokenizer.from_pretrained("gpt2-medium")
-        # model = AutoModelForCausalLM.from_pretrained("gpt2-medium")
+        return tokens
 
-        # input_text = f"{prompt}\n\nUser: {self.clean_data(text)}\nAI:"
-        # inputs = tokenizer(input_text, return_tensors="pt")
-        # outputs = model.generate(**inputs, max_length=200)
-        # print(f"outputs=========:{outputs}")
-        # return tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-        return self.extract_entities_relations(text, prompt)
-    
 
     def extract_entities_relations(self, text, system_prompt=None):
         result = self.find_similar_keys_and_extract(text, 0.7)
+        # result = self._spacy_structured_extraction(text)
         print(f"\n----find_similar_keys_and_extract--------:\n{result}")
+        # return None
         print(f"\n--graph_scheme--: {self.graph_scheme} \n --attributes--: {self.attributes}")
-        # todo format result to graph_scheme format
-        return {
-            "entities": [result],
-            "relationships": []
-        }
-        nlp = Config.spacy_nlp_trf
-
-        json_data = json.loads(text)
-        print(f"\nsystem_prompt-----:{json_data}")
-        # label, value in json_data.items():
-            
-        # Process system prompt to understand extraction targets
-        prompt_doc = nlp(system_prompt)
-        
-        # Initialize target entity labels from prompt analysis
-        target_entity_labels = set(
-            ent.label_ for ent in prompt_doc.ents if ent.label_ in nlp.get_pipe("ner").labels
-        )
-        print(f"\ntarget_entity_labels----:{target_entity_labels}")
-
-        # Apply NLP pipeline
-        doc = nlp(text)
-        
-        # Initialize output structure
-        result = {
-            "entities": [],
-            "relationships": []
-        }
-        
-        # Custom entity processing
-        entity_map = {}  # Track entities for relationship extraction
-        
-        # 1. Extract standard named entities
-        for ent in doc.ents:
-            if not target_entity_labels or ent.label_ in target_entity_labels:
-                entity_id = len(result['entities']) + 1
-                entity_map[ent.text] = entity_id
-                result["entities"].append({
-                    "id": entity_id,
-                    "type": ent.label_,
-                    "name": ent.text,
-                    "source": "ner",
-                    "properties": {
-                        "start_pos": ent.start_char,
-                        "end_pos": ent.end_char
-                    }
-                })
-
-        return result
-
-
-        # print(text)
-        doc = Config.spacy_nlp_trf(text)
-        
-        # 
+        # format result to graph_scheme format
         entities = []
-        for ent in doc.ents:
-            print(ent.text)
+        scheme_entities = self.graph_scheme.get("entities", {})
+        idx = 0
+        for label, entity in scheme_entities.items():
+            idx += 1
             entities.append({
-                "text": ent.text,
-                "label": ent.label_,
-                "start": ent.start_char,
-                "end": ent.end_char
+                "id": idx,
+                "type": label,
+                "name": result.get("name", ""),
+                "properties": ({attr : result.get(attr, "") for attr in entity.get("attributes", [])})
             })
-        
-        # 
-        relations = []
-        for token in doc:
-            if token.dep_ in ("nsubj", "dobj", "attr"):
-                relations.append({
-                    "source": token.head.text,
-                    "target": token.text,
-                    "relation": token.dep_,
-                    "sentence": token.sent.text
-                })
-        
-        # 
-        if system_prompt:
-            prompt_doc = Config.spacy_nlp_trf(system_prompt)
-            for ent in prompt_doc.ents:
-                if any(e["text"] == ent.text for e in entities):
-                    continue
-                entities.append({
-                    "text": ent.text,
-                    "label": "PROMPT_" + ent.label_,
-                    "start": None,
-                    "end": None
-                })
-        
-        return {"entities": entities, "relations": relations}
+
+        return {
+            "entities": entities,
+            "relationships": []
+        }
 
 
     def find_similar_keys_and_extract(self, target_dict, threshold=0.7):
@@ -233,6 +161,8 @@ class Extractor:
             field_doc = nlp(field)
             # calculate similarity
             for key, key_doc in dict_key_docs.items():
+                # if not field_doc.vector.any() or not key_doc.vector.any():
+                #     continue
                 similarity = field_doc.similarity(key_doc)
                 if similarity >= threshold:
                     if field not in results:
@@ -250,3 +180,30 @@ class Extractor:
             response[self.graph_scheme_attributes[field]] = results[field][0]['value']
 
         return dict(response)
+
+
+    def _spacy_structured_extraction(self, text):
+        nlp = Config.spacy_nlp_trf
+        doc = nlp(text)
+        print(f"doc-------------:\n{doc}")
+        
+        # init matcher
+        matcher = PhraseMatcher(nlp.vocab)
+        matcher.add("Product".upper(), list(nlp.pipe(list(self.graph_scheme_attributes.keys()))))
+
+        results = {"matches": [], "attributes": []}
+        matches = matcher(doc)
+        print(f"matches-------------:\n{matches}")
+        
+        # keyword matching
+        for match_id, start, end in matches:
+            span = doc[start:end]
+            print(f"\n----------span----:{span}")
+            results["matches"].append({
+                "text": span.text,
+                "label": nlp.vocab.strings[match_id],
+                "span": (start, end),
+                "value": span.sent.text
+            })
+
+        return results

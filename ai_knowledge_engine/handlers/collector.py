@@ -99,25 +99,24 @@ class S3DataProcessor:
                     if type(obj) is dict and len(obj) > 0:
                         document_uuid = uuid.uuid4().hex
                         embedding = operator.embedding(obj=obj)
-                        print(f"\n\n=================== embeddings: {embedding}")
-                        print("\n----------------extract_entities start: ")
-                        print(extractor.extract_entities(json.dumps(obj)))
-                        print("\n----------------extract_entities end: ")
-                        return
+                        # print("\n----------------extract_entities start: ")
+                        # print(extractor.extract_entities(json.dumps(obj)))
+                        # print("\n----------------extract_entities end: ")
+
                         # 1. Write data to vector database
-                        # operator.save_vector_document(obj, document_uuid, embedding)
-                        # # 2. Save data to dynamodb
-                        # operator.save_document_chuck(
-                        #     raw=data,
-                        #     document_uuid=document_uuid,
-                        #     document_title=document_title, 
-                        #     document_external_id=document_external_id,
-                        #     embeddings=embedding,
-                        #     editor=editor,
-                        #     max_retries=max_retries,
-                        # )
-                        # # 3. Extract entities & write entitis to graph database
-                        # operator.save_graph_document(extractor.extract_entities(json.dumps(obj)))
+                        operator.save_vector_document(obj, document_uuid, embedding)
+                        # 2. Save data to dynamodb
+                        operator.save_document_chuck(
+                            raw=data,
+                            document_uuid=document_uuid,
+                            document_title=document_title, 
+                            document_external_id=document_external_id,
+                            embeddings=embedding,
+                            editor=editor,
+                            max_retries=max_retries,
+                        )
+                        # 3. Extract entities & write entitis to graph database
+                        operator.save_graph_document(extractor.extract_entities(json.dumps(obj)))
 
                     elif parser.need_read_next: # If the object is uncompletion, read the next line
                         continue
