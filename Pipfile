@@ -4,6 +4,9 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+silvaengine-resource = {ref = "main", git = "ssh://git@github.com/ideabosque/silvaengine_resouces.git"}
+event-triggers = {ref = "main", git = "ssh://git@github.com/ideabosque/event_triggers.git"}
+silvaengine-permission = {ref = "main", git = "ssh://git@github.com/ideabosque/silvaengine_permission.git"}
 
 [dev-packages]
 

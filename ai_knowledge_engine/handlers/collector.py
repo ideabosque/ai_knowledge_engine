@@ -8,7 +8,7 @@ from graphene import ResolveInfo
 from silvaengine_utility import Utility
 from typing import Any,  Dict, List
 from .parser import Parser
-from .initializer import Initializer
+from .config import Config
 from .extractor import Extractor
 from .operator import Operator
 
@@ -20,7 +20,6 @@ class S3DataProcessor:
         self.unstructured_data = []
         self.entity_cache = []  # For staging entities, attributes, and relationships
         self.token_count = 0
-        self.config = Initializer(setting=setting)
 
     def process_file(
             self, 
@@ -43,17 +42,16 @@ class S3DataProcessor:
         """
         excute_start_time = pendulum.now("UTC")
         parser = Parser()
-        extractor = Extractor(self.config, document_source=document_source, attributes=graph_scheme_attributes)
+        extractor = Extractor(document_source=document_source, attributes=graph_scheme_attributes)
         operator = Operator(
-            self.config, 
             document_source=document_source, 
             endpoint_id=endpoint_id, 
             graph_scheme_attributes=graph_scheme_attributes,
             vector_scheme_attributes=vector_scheme_attributes,
             embedding_attributes=embedding_attributes,
         )
-        document_title = f"Processed Document <{self.config}>"
-        response = self.config.aws_s3.get_object(Bucket=self.config.aws_s3_bucket, Key=object_key, Range=f"bytes={position}-")
+        document_title = f"Processed Document <{Config}>"
+        response = Config.aws_s3.get_object(Bucket=Config.aws_s3_bucket, Key=object_key, Range=f"bytes={position}-")
         stream = response['Body']
         chunk_index = 0
         header = ""
@@ -101,6 +99,10 @@ class S3DataProcessor:
                     if type(obj) is dict and len(obj) > 0:
                         document_uuid = uuid.uuid4().hex
                         embedding = operator.embedding(obj=obj)
+                        # print("\n----------------extract_entities start: ")
+                        # print(extractor.extract_entities(json.dumps(obj)))
+                        # print("\n----------------extract_entities end: ")
+
                         # 1. Write data to vector database
                         operator.save_vector_document(obj, document_uuid, embedding)
                         # 2. Save data to dynamodb
@@ -154,7 +156,7 @@ class S3DataProcessor:
                     print(traceback.format_exc())
                     continue
         except Exception as e:
-            response = self.config.aws_s3.get_object(Bucket=self.config.aws_s3_bucket, Key=object_key, Range=f"bytes={position}-")
+            response = Config.aws_s3.get_object(Bucket=Config.aws_s3_bucket, Key=object_key, Range=f"bytes={position}-")
             stream = response['Body']
             print(f"Skip: {e}")
             pass
@@ -168,10 +170,10 @@ class S3DataProcessor:
             logger=info.context.get("logger"),
             endpoint_id=info.context.get("endpoint_id"),
             funct="ai_knowledge_graphql",
-            query=Utility.generate_graphql_operation("loadDocument", "Mutation", self.config.graphql_schemes.get("ai_knowledge_graphql",{})),
+            query=Utility.generate_graphql_operation("loadDocument", "Mutation", Config.graphql_schemes.get("ai_knowledge_graphql",{})),
             variables=humps.camelize(kwargs),
             setting=info.context.get("setting"),
             connection_id=None,
-            test_mode=self.config.test_mode,
-            aws_lambda=self.config.aws_lambda,
+            test_mode=Config.test_mode,
+            aws_lambda=Config.aws_lambda,
         )

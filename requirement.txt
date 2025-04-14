@@ -1,0 +1,10 @@
+python-dotenv
+graphene==2.1.9
+python-dateutil
+sqlalchemy
+pynamodb
+boto3
+spacy
+deepdiff
+tenacity
+pendulum

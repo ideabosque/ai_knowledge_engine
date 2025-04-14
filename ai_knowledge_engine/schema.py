@@ -20,53 +20,30 @@ from graphene import (
 
 from silvaengine_utility import JSON
 
-from .mutations import (
-    DeleteDataSource,
-    DeleteDocument,
-    DeleteDocumentProcessEntity,
-    DeleteDocumentProcessTask,
-    DeleteKnowledgeGraphMetadata,
-    DeleteRequest,
-    InsertUpdateDataSource,
-    InsertUpdateDocument,
-    InsertUpdateDocumentProcessEntity,
-    InsertUpdateDocumentProcessTask,
-    InsertUpdateKnowledgeGraphMetadata,
-    InsertUpdateRequest,
-    LoadDocument,
-)
-from .queries import (
-    resolve_data_source,
-    resolve_data_source_list,
-    resolve_data_view,
-    resolve_document,
-    resolve_document_list,
-    resolve_document_process_entity,
-    resolve_document_process_entity_list,
-    resolve_document_process_task,
-    resolve_document_process_task_list,
-    resolve_knowledge_graph_metadata,
-    resolve_knowledge_graph_metadata_list,
-    resolve_knowledge_rag,
-    resolve_request,
-    resolve_request_list,
-)
-from .types import (
-    DataSourceListType,
-    DataSourceType,
-    DataViewType,
-    DocumentListType,
-    DocumentProcessEntityListType,
-    DocumentProcessEntityType,
-    DocumentProcessTaskListType,
-    DocumentProcessTaskType,
-    DocumentType,
-    KnowledgeGraphMetadataListType,
-    KnowledgeGraphMetadataType,
-    KnowledgeRagType,
-    RequestListType,
-    RequestType,
-)
+from .mutations.data_source import InsertUpdateDataSource, DeleteDataSource
+from .mutations.document import InsertUpdateDocument, DeleteDocument
+from .mutations.document_process_entity import InsertUpdateDocumentProcessEntity, DeleteDocumentProcessEntity
+from .mutations.document_process_task import InsertUpdateDocumentProcessTask, DeleteDocumentProcessTask
+from .mutations.knowledge_graph_metadata import InsertUpdateKnowledgeGraphMetadata, DeleteKnowledgeGraphMetadata
+from .mutations.request import InsertUpdateRequest, DeleteRequest, LoadDocument
+
+from .queries.data_source import resolve_data_source, resolve_data_source_list
+from .queries.data_view import resolve_data_view
+from .queries.document import resolve_document, resolve_document_list
+from .queries.document_process_entity import resolve_document_process_entity, resolve_document_process_entity_list
+from .queries.document_process_task import resolve_document_process_task, resolve_document_process_task_list
+from .queries.knowledge_graph_metadata import resolve_knowledge_graph_metadata, resolve_knowledge_graph_metadata_list
+from .queries.request import resolve_request, resolve_request_list
+from .queries.knowledge_rag import resolve_knowledge_rag
+
+from .types.data_source import DataSourceType, DataSourceListType
+from .types.document import DocumentType, DocumentListType
+from .types.document_process_entity import DocumentProcessEntityType, DocumentProcessEntityListType
+from .types.document_process_task import DocumentProcessTaskType, DocumentProcessTaskListType
+from .types.knowledge_graph_metadata import KnowledgeGraphMetadataType, KnowledgeGraphMetadataListType
+from .types.knowledge_rag import KnowledgeRagType
+from .types.request import RequestType, RequestListType
+from .types.data_view import DataViewType
 
 
 def type_class():
