@@ -1,20 +1,18 @@
 
 import json, pendulum, uuid, time
 from typing import Any, Dict, List
-from .initializer import Initializer
-from ..models import DocumentModel
+from .config import Config
+from ..models.document import DocumentModel
 
 class Operator:
     def __init__(
-            self, 
-            initializer:Initializer, 
-            document_source: str, 
+            self,
+            document_source: str,
             endpoint_id:str, 
             graph_scheme_attributes: Dict[str, str],
             vector_scheme_attributes: Dict[str, str],
             embedding_attributes: List[str] = [],
         ):
-        self.config = initializer
         self.document_source = document_source
         self.endpoint_id = endpoint_id
         self.graph_scheme_attributes = graph_scheme_attributes
@@ -86,7 +84,7 @@ class Operator:
 
             print("*************** Index:", fields)
 
-            self.config.vector_db_connector.create_redis_index(
+            Config.vector_db_connector.create_redis_index(
                 index_name=index_name,
                 fields=fields,
                 prefix=index_name,
@@ -112,11 +110,14 @@ class Operator:
             if len(data) < 1:
                 data = obj
 
-            embeddings = self.config.openai_client.embeddings.create(
-                input=json.dumps(data), model=self.config.embedding_model
-            )
-            
-            return embeddings.data[0].embedding
+            if Config.process_model == "openai":
+                embeddings = Config.openai_client.embeddings.create(
+                    input=json.dumps(data), model=Config.embedding_model
+                )
+                return embeddings.data[0].embedding
+            else:
+                embeddings = Config.spacy_nlp(json.dumps(data)).vector
+                return embeddings
         except Exception as e:
             print(e)
             return None
@@ -183,7 +184,7 @@ class Operator:
             print(self._generate_vector_database_index_name())
             print(document)
             
-            self.config.vector_db_connector.index_document(
+            Config.vector_db_connector.index_document(
                 prefix=self._generate_vector_database_index_name(),
                 key="id",
                 doc=document,
@@ -210,8 +211,8 @@ class Operator:
 
             if type(cypher_query) is str and len(cypher_query) > 0:
                 print(f"\n>>>>>>>>>> 4. Excute Cypher Query: {cypher_query}\n\n")
-                with self.config.graph_db_connector.driver.session(
-                    database=self.config.setting.get("neo4j_database", "neo4j")
+                with Config.graph_db_connector.driver.session(
+                    database=Config.setting.get("neo4j_database", "neo4j")
                 ) as session:
                     session.run(cypher_query)
                 # session.close()

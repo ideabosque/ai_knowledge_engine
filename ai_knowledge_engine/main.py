@@ -11,7 +11,8 @@ from graphene import Schema
 
 from silvaengine_dynamodb_base import SilvaEngineDynamoDBBase
 
-from .handlers.handlers import handlers_init
+# from .handlers.handlers import handlers_init
+from .handlers.config import Config
 from .schema import Mutations, Query, type_class
 from .handlers.collector import S3DataProcessor
 
@@ -133,7 +134,7 @@ def deploy() -> List:
 
 class AIKnowledgeEngine(SilvaEngineDynamoDBBase):
     def __init__(self, logger: logging.Logger, **setting: Dict[str, Any]) -> None:
-        handlers_init(logger, **setting)
+        Config.initialize(logger, **setting)
 
         self.logger = logger
         self.setting = setting
