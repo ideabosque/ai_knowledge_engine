@@ -28,9 +28,9 @@ setting = {
             "class_name": "AIKnowledgeEngine",
         },
     },
-    "module_bucket_name": os.getenv("module_bucket_name"),
-    "module_zip_path": os.getenv("module_zip_path"),
-    "module_extract_path": os.getenv("module_extract_path"),
+    "module_bucket_name": os.getenv("MODULE_BUCKET_NAME"),
+    "module_zip_path": os.getenv("MODULE_ZIP_PATH"),
+    "module_extract_path": os.getenv("MODULE_EXTRACT_PATH"),
     "EMBEDDING_MODEL": os.getenv("EMBEDDING_MODEL"),
     "graph_db_connector_config": {
         "module_name": "neo4j_graph_connector",
