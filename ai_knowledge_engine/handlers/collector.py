@@ -40,6 +40,9 @@ class S3DataProcessor:
         """
         Read S3 files line by line and process data
         """
+        # TODO Parameters check
+        # ! If the embedding_attributes / graph_scheme_attributes / vector_scheme_attributes empty, get default values from metadata to instead
+
         excute_start_time = pendulum.now("UTC")
         parser = Parser()
         extractor = Extractor(document_source=document_source, attributes=graph_scheme_attributes)
@@ -64,8 +67,8 @@ class S3DataProcessor:
         try:
             for line in stream.iter_lines():
                 try:
-                    # Invoke self if the excute time is greater than 10 minutes
-                    if pendulum.now("UTC") - excute_start_time > pendulum.duration(minutes=10):
+                    # Invoke self if the excute time is greater than 5 minutes
+                    if pendulum.now("UTC") - excute_start_time > pendulum.duration(minutes=5):
                         self.invoke_self(
                             info=info,
                             document_source=document_source,
