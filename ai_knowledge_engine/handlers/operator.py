@@ -110,7 +110,7 @@ class Operator:
             if len(data) < 1:
                 data = obj
 
-            if Config.process_model == "openai":
+            if not Config.process_model and str(Config.process_model).strip().lower() == "openai":
                 embeddings = Config.openai_client.embeddings.create(
                     input=json.dumps(data), model=Config.embedding_model
                 )
