@@ -25,7 +25,7 @@ from .mutations.document import InsertUpdateDocument, DeleteDocument
 from .mutations.document_process_entity import InsertUpdateDocumentProcessEntity, DeleteDocumentProcessEntity
 from .mutations.document_process_task import InsertUpdateDocumentProcessTask, DeleteDocumentProcessTask
 from .mutations.knowledge_graph_metadata import InsertUpdateKnowledgeGraphMetadata, DeleteKnowledgeGraphMetadata
-from .mutations.request import InsertUpdateRequest, DeleteRequest, LoadDocument
+from .mutations.request import InsertUpdateRequest, DeleteRequest, LoadDocument, LoadShopifyDocument
 
 from .queries.data_source import resolve_data_source, resolve_data_source_list
 from .queries.data_view import resolve_data_view
@@ -268,3 +268,4 @@ class Mutations(ObjectType):
     insert_update_request = InsertUpdateRequest.Field()
     delete_request = DeleteRequest.Field()
     load_document = LoadDocument.Field()
+    load_shopify_document = LoadShopifyDocument.Field()

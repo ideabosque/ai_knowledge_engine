@@ -212,7 +212,7 @@ class Operator:
             if type(cypher_query) is str and len(cypher_query) > 0:
                 print(f"\n>>>>>>>>>> 4. Excute Cypher Query: {cypher_query}\n\n")
                 with Config.graph_db_connector.driver.session(
-                    database=Config.setting.get("neo4j_database", "neo4j")
+                    database=Config.graph_db_connector.database
                 ) as session:
                     session.run(cypher_query)
                 # session.close()

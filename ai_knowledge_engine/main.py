@@ -119,6 +119,7 @@ def deploy() -> List:
                         },
                         {"action": "deleteDataView", "label": "Delete Data View"},
                         {"action": "LoadDocument", "label": "Load Document"},
+                        {"action": "LoadShopifyDocument", "label": "Load Shopify Document"},
                     ],
                     "type": "RequestResponse",
                     "support_methods": ["POST"],
