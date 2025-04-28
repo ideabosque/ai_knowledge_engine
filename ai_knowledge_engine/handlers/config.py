@@ -105,6 +105,7 @@ class Config:
         model_bucket = setting.get("model_bucket_name", "silvaengine-models")
         tmp_dir = tempfile.mkdtemp()
 
+        # TODO: Parallelize the download and decompression of the following models.
         model_name = setting.get("spacy_model", "en_core_web_sm")
         key = f"{model_name}.zip"
         zip_path = f"{tmp_dir}/{key}"
