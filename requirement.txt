@@ -8,3 +8,8 @@ spacy
 deepdiff
 tenacity
 pendulum
+humps
+neo4j
+redis
+openai
+beautifulsoup4

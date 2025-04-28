@@ -247,6 +247,9 @@ Please the return the extracted data in the following format:
             "Entity `customer` purchased entity `prodcut`",
         ],
     },
+    "shop_url": os.getenv("SHOP_URL"),
+    "api_version": os.getenv("API_VERSION"),
+    "private_app_password": os.getenv("PRIVATE_APP_PASSWORD"),
 }
 
 sys.path.insert(0, f"{os.getenv('BASE_DIR')}/ai_knowledge_engine")
@@ -730,7 +733,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_load_document(self):
         try:
             payload = {
@@ -786,6 +789,67 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                         "product_code/sku": "sku",
                     },
                     "vectorSchemeAttributes": {"product_name": "name"},
+                },
+            }
+            response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
+            logger.info(response)
+        except Exception as e:
+            print(f"Error reading file: {e}")
+
+
+    @unittest.skip("demonstrating skipping")
+    def test_load_shopify_document(self):
+        try:
+            payload = {
+                "query": """mutation loadShopifyDocument(
+                    $documentSource: String!
+                    $endpointId: String!
+                    $position: Int
+                    $embeddingAttributes: [String!]
+                    $graphSchemeAttributes: JSON!
+                    $vectorSchemeAttributes: JSON!
+                    $maxRetries: Int
+                    $editor: String
+                    $filters: JSON
+                ) {
+                    loadShopifyDocument (
+                        documentSource: $documentSource
+                        endpointId: $endpointId
+                        position: $position
+                        embeddingAttributes: $embeddingAttributes
+                        graphSchemeAttributes: $graphSchemeAttributes
+                        vectorSchemeAttributes: $vectorSchemeAttributes
+                        maxRetries: $maxRetries
+                        editor: $editor
+                        filters: $filters
+                    ) {
+                        ok
+                    }
+                }""",
+                "variables": {
+                    "documentSource": "product",
+                    "endpointId": "cleaning-stuff",
+                    # "objectKey": "companies/cleaning-stuff-products.csv",
+                    "embeddingAttributes": [
+                        "product_name",
+                        "meta_keywords",
+                        "meta_description",
+                        "name",
+                        "keywords",
+                        "description",
+                    ],
+                    "graphSchemeAttributes": {
+                        "product_name": "name",
+                        "meta_keywords": "keywords",
+                        "meta_description": "description",
+                        "price": "price",
+                        "brand_name": "brand",
+                        "product_code/sku": "sku",
+                    },
+                    "vectorSchemeAttributes": {"product_name": "name"},
+                    "filters": {
+                        "product_type": "Boxing",
+                    }
                 },
             }
             response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)

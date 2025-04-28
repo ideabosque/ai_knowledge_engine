@@ -126,7 +126,7 @@ class Extractor:
         for label, entity in scheme_entities.items():
             idx += 1
             entities.append({
-                "id": idx,
+                "id": result.get('id') if result.get("id") else idx,
                 "type": label,
                 "name": result.get("name", ""),
                 "properties": ({attr : result.get(attr, "") for attr in entity.get("attributes", [])})
@@ -142,7 +142,7 @@ class Extractor:
         """
         Match the key with high similarity in the dictionary based on the field list and extract the corresponding value
         params:
-            target_dict: {key: value}
+            target_dict: "{key: value}"
             threshold: similarity range(0-1)
         results:
             dicts
@@ -175,6 +175,8 @@ class Extractor:
         
         # similarity sort and extract
         response = {}
+        if target_dict.get("id"):
+            response['id'] = target_dict['id']
         for field in results:
             results[field].sort(key=lambda x: x['similarity'], reverse=True)
             response[self.graph_scheme_attributes[field]] = results[field][0]['value']

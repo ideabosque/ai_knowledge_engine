@@ -13,6 +13,7 @@ from silvaengine_utility import JSON
 from ..models.request import insert_update_request, delete_request
 from ..types.request import RequestType
 from ..handlers.collector import S3DataProcessor
+from ..handlers.shopify import ShopifyHandler
 
 
 class InsertUpdateRequest(Mutation):
@@ -80,6 +81,33 @@ class LoadDocument(Mutation):
     def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "InsertUpdateRequest":
         try:
             S3DataProcessor(setting=info.context.get("setting", {})).process_file(info=info, **kwargs)
+        except Exception as e:
+            log = traceback.format_exc()
+            info.context.get("logger").error(log)
+            raise e
+
+        return LoadDocument(ok=True)
+
+
+class LoadShopifyDocument(Mutation):
+    ok = Boolean()
+
+    class Arguments:
+        document_source = String(required=True)
+        endpoint_id = String(required=True)
+        position = Int(required=False,default_value=0)
+        embedding_attributes = List(String, required=False, default_value=[])
+        graph_scheme_attributes = JSON(required=False, default_value={})
+        vector_scheme_attributes = JSON(required=False, default_value={})
+        max_retries = Int(required=False, default_value=3)
+        editor = String(required=False, default_value="")
+        document_external_id = String(required=False, default_value=None)
+        filters = JSON(required=False, default_value={})
+
+    @staticmethod
+    def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "InsertUpdateRequest":
+        try:
+            ShopifyHandler(setting=info.context.get("setting", {}), logger=info.context.get("logger")).process_data(info=info, **kwargs)
         except Exception as e:
             log = traceback.format_exc()
             info.context.get("logger").error(log)
