@@ -16,7 +16,9 @@ setup(
     zip_safe=False,
     platforms="Linux",
     install_requires=[
-        "tiktoken"
+        "tiktoken",
+        "spacy",
+        "transformers"
     ],
     classifiers=[
         "Programming Language :: Python",
