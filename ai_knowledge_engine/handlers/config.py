@@ -1,6 +1,7 @@
 import boto3, logging, sys, os, traceback, zipfile, tempfile
 from typing import Dict, List, Any, Optional, Callable
 from silvaengine_utility import Utility
+from ..providers.proxy_large_model  import ProxyLargeModel
 
 class Config:
     openai_client = None
@@ -22,6 +23,7 @@ class Config:
     process_model = None
     spacy_nlp = None
     spacy_nlp_trf = None
+    proxy_large_model = None
 
     @classmethod
     def initialize(cls, logger: logging.Logger, **setting: Dict[str, Any]) -> None:
@@ -92,10 +94,11 @@ class Config:
 
     @classmethod
     def _initialize_process_model(cls, setting: Dict[str, Any]) -> None:
-        if "openai" == cls.process_model:
-            cls._initialize_openai_client(setting)
-        elif "spacy" == cls.process_model:
-            cls._initialize_spacy_compenent(setting)
+        cls.proxy_large_model = ProxyLargeModel(cls.aws_s3, **setting)
+        # if "openai" == cls.process_model:
+        #     cls._initialize_openai_client(setting)
+        # elif "spacy" == cls.process_model:
+        #     cls._initialize_spacy_compenent(setting)
 
 
     @classmethod
