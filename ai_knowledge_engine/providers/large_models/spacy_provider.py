@@ -39,6 +39,9 @@ class SpacyProvider(AbstractModel):
         return tokens
 
 
+    """
+    ############## private methods ##############
+    """
     def _find_similar_keys_and_extract(self, target_dict, graph_scheme_attributes, threshold=0.7):
         """
         Match the key with high similarity in the dictionary based on the field list and extract the corresponding value
