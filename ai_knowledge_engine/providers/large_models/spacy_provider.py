@@ -1,10 +1,53 @@
-import json, re
+import json, zipfile, tempfile
 from typing import Any, Dict
-from ai_knowledge_engine.ai_knowledge_engine.handlers.config import Config
+import spacy
+from spacy.matcher import PhraseMatcher
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 from .abstract_model import AbstractModel
 
 
+
 class SpacyProvider(AbstractModel):
+    spacy_nlp = None
+    sentence_trf = None
+
+
+    def __init__(self, aws_s3, **setting: Dict[str, Any]) -> None:
+        model_bucket = setting.get("model_bucket_name", "silvaengine-models")
+        tmp_dir = tempfile.mkdtemp()
+
+        # TODO: Parallelize the download and decompression of the following models.
+        model_name = setting.get("spacy_model", "en_core_web_sm")
+        # key = f"{model_name}.zip"
+        # zip_path = f"{tmp_dir}/{key}"
+        # model_path = f"{tmp_dir}/{model_name}"
+
+        # aws_s3.download_file(model_bucket, key, zip_path)
+
+        # # Extract the ZIP file
+        # with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        #     zip_ref.extractall(model_path)
+
+        # self.spacy_nlp = spacy.util.load_model_from_path(model_path)
+        self.spacy_nlp = spacy.load(model_name)
+
+        # trf_model_name = setting.get("spacy_trf_model", "en_core_web_trf")
+        # key = f"{trf_model_name}.zip"
+        # zip_path = f"{tmp_dir}/{key}"
+        # trf_model_path = f"{tmp_dir}/{trf_model_name}"
+
+        # aws_s3.download_file(model_bucket, key, zip_path)
+
+        # # Extract the ZIP file
+        # with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        #     zip_ref.extractall(trf_model_path)
+
+        # self.spacy_nlp_trf = spacy.util.load_model_from_path(trf_model_path)
+
+        self.sentence_trf = SentenceTransformer('all-MiniLM-L6-v2', device='cpu')
+
+
     def extract_entities(self, user_prompt: str, graph_scheme, graph_scheme_attributes) -> Dict[str, Any]:
         result = self._find_similar_keys_and_extract(user_prompt, graph_scheme_attributes, 0.7)
         # result = self._spacy_structured_extraction(text)
@@ -31,12 +74,17 @@ class SpacyProvider(AbstractModel):
 
 
     def tokenize_text(self, text: str) -> Dict[str, Any]:
-        doc = Config.spacy_nlp_trf(text)
+        doc = self.spacy_nlp(text)
         tokens = []
         for token in doc:
             tokens.append(token.text,)
 
         return tokens
+
+
+    def get_embeddings(self, data) -> Any:
+        embeddings = self.spacy_nlp(json.dumps(data)).vector
+        return embeddings
 
 
     """
@@ -51,7 +99,7 @@ class SpacyProvider(AbstractModel):
         results:
             dicts
         """
-        nlp = Config.spacy_nlp_trf
+        nlp = self.spacy_nlp
         print(f"\n------nlp --------:{nlp.__module__}")
         results = {}
 
@@ -89,7 +137,7 @@ class SpacyProvider(AbstractModel):
 
 
     def _spacy_structured_extraction(self, text, graph_scheme_attributes):
-        nlp = Config.spacy_nlp_trf
+        nlp = self.spacy_nlp
         doc = nlp(text)
         print(f"doc-------------:\n{doc}")
         

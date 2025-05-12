@@ -1,19 +1,18 @@
-from ai_knowledge_engine.ai_knowledge_engine.handlers.config import Config
-from .large_models import AbstractModel, SpacyProvider, OpenaiProvider
+from typing import Any, Dict
+from .large_models.abstract_model import AbstractModel
+from .large_models.spacy_provider import SpacyProvider
+from .large_models.openai_provider import OpenaiProvider
 
 
 class ProxyLargeModel(object):
-    provider = None
+    provider: AbstractModel = None
 
-    def __init__(self) -> None:
-        if Config.process_model.get("provider") == "openai":
-            provider = OpenaiProvider()
-        elif Config.process_model.get("provider") == "spacy":
-            provider = SpacyProvider()
+    def __init__(self, aws_s3_client, **setting: Dict[str, Any]) -> None:
+        process_model = setting.get("process_model", "spacy")
+
+        if process_model == "openai":
+            self.provider = OpenaiProvider(**setting)
+        elif process_model == "spacy":
+            self.provider = SpacyProvider(aws_s3_client, **setting)
         else:
             raise Exception("Invalid provider")
-        self.provider = provider
-
-
-    def get_provider(self) -> AbstractModel:
-        return self.provider

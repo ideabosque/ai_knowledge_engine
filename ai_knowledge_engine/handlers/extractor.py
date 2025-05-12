@@ -18,6 +18,13 @@ class Extractor:
         """
         Extracting entities, attributes, and relationships from data for graph
         """
+        response = Config.proxy_large_model.provider.extract_entities(
+            user_prompt=user_prompt,
+            graph_scheme=self.graph_scheme,
+            graph_scheme_attributes=self.graph_scheme_attributes,
+        )
+        return response
+
         try:
             system_prompt = f"""Please strictly follow the following data mapping rules and schemes to extract the corresponding information and relationships from the user-provided data:
 1. Mapping rule - Mapping rules for fields in user data and scheme fields (The key in the rule corresponds to the user's original data source, and the value corresponds to the key in the scheme.):
@@ -86,6 +93,8 @@ class Extractor:
         """
         Segmentation of unstructured data using OpenAI
         """
+        response = Config.proxy_large_model.provider.tokenize_text(text)
+        return response
         try:
             if Config.process_model == "openai":
                 prompt = f"Please tokenize the user-submitted text and return it strictly as a JSON array. "

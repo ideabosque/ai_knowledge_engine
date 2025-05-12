@@ -12,4 +12,4 @@ humps
 neo4j
 redis
 openai
-beautifulsoup4
+sentence_transformers
