@@ -1,0 +1,115 @@
+import json, re
+from typing import Any, Dict
+from ai_knowledge_engine.ai_knowledge_engine.handlers.config import Config
+from .abstract_model import AbstractModel
+
+
+class SpacyProvider(AbstractModel):
+    def extract_entities(self, user_prompt: str, graph_scheme, graph_scheme_attributes) -> Dict[str, Any]:
+        result = self._find_similar_keys_and_extract(user_prompt, graph_scheme_attributes, 0.7)
+        # result = self._spacy_structured_extraction(text)
+        print(f"\n----find_similar_keys_and_extract--------:\n{result}")
+        # return None
+        print(f"\n--graph_scheme--: {graph_scheme} \n")
+        # format result to graph_scheme format
+        entities = []
+        scheme_entities = graph_scheme.get("entities", {})
+        idx = 0
+        for label, entity in scheme_entities.items():
+            idx += 1
+            entities.append({
+                "id": result.get('id') if result.get("id") else idx,
+                "type": label,
+                "name": result.get("name", ""),
+                "properties": ({attr : result.get(attr, "") for attr in entity.get("attributes", [])})
+            })
+
+        return {
+            "entities": entities,
+            "relationships": []
+        }
+
+
+    def tokenize_text(self, text: str) -> Dict[str, Any]:
+        doc = Config.spacy_nlp_trf(text)
+        tokens = []
+        for token in doc:
+            tokens.append(token.text,)
+
+        return tokens
+
+
+    """
+    ############## private methods ##############
+    """
+    def _find_similar_keys_and_extract(self, target_dict, graph_scheme_attributes, threshold=0.7):
+        """
+        Match the key with high similarity in the dictionary based on the field list and extract the corresponding value
+        params:
+            target_dict: "{key: value}"
+            threshold: similarity range(0-1)
+        results:
+            dicts
+        """
+        nlp = Config.spacy_nlp_trf
+        print(f"\n------nlp --------:{nlp.__module__}")
+        results = {}
+
+        target_dict = json.loads(target_dict)
+        dict_keys = list(target_dict.keys())
+        dict_key_docs = {key: nlp(key) for key in dict_keys}
+        
+        field_list = list(graph_scheme_attributes.keys())
+        print(f"\n------field_list --------:{field_list}")
+        for field in field_list:
+            field_doc = nlp(field)
+            # calculate similarity
+            for key, key_doc in dict_key_docs.items():
+                # if not field_doc.vector.any() or not key_doc.vector.any():
+                #     continue
+                similarity = field_doc.similarity(key_doc)
+                if similarity >= threshold:
+                    if field not in results:
+                        results[field] = []
+                    results[field].append({
+                        'matched_key': key,
+                        'similarity': similarity,
+                        'value': target_dict[key]
+                    })
+        
+        # similarity sort and extract
+        response = {}
+        if target_dict.get("id"):
+            response['id'] = target_dict['id']
+        for field in results:
+            results[field].sort(key=lambda x: x['similarity'], reverse=True)
+            response[graph_scheme_attributes[field]] = results[field][0]['value']
+
+        return dict(response)
+
+
+    def _spacy_structured_extraction(self, text, graph_scheme_attributes):
+        nlp = Config.spacy_nlp_trf
+        doc = nlp(text)
+        print(f"doc-------------:\n{doc}")
+        
+        # init matcher
+        matcher = PhraseMatcher(nlp.vocab)
+        matcher.add("Product".upper(), list(nlp.pipe(list(graph_scheme_attributes.keys()))))
+
+        results = {"matches": [], "attributes": []}
+        matches = matcher(doc)
+        print(f"matches-------------:\n{matches}")
+        
+        # keyword matching
+        for match_id, start, end in matches:
+            span = doc[start:end]
+            print(f"\n----------span----:{span}")
+            results["matches"].append({
+                "text": span.text,
+                "label": nlp.vocab.strings[match_id],
+                "span": (start, end),
+                "value": span.sent.text
+            })
+
+        return results
