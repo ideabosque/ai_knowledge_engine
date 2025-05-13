@@ -110,7 +110,7 @@ class Operator:
             if len(data) < 1:
                 data = obj
 
-            return Config.proxy_large_model.provider.get_embeddings(data)
+            return Config.proxy_large_model.provider.get_embeddings(json.dumps(data))
 
             if not Config.process_model and str(Config.process_model).strip().lower() == "openai":
                 embeddings = Config.openai_client.embeddings.create(

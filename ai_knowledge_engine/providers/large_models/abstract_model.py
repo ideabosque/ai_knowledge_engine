@@ -8,3 +8,7 @@ class AbstractModel(object):
 
     def tokenize_text(self, text: str) -> Dict[str, Any]:
         raise NotImplementedError("Subclasses must implement this method")
+
+
+    def get_embeddings(self, data) -> Any:
+        raise NotImplementedError("Subclasses must implement this method")

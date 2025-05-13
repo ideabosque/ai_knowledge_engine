@@ -2,8 +2,6 @@ import json, zipfile, tempfile
 from typing import Any, Dict
 import spacy
 from spacy.matcher import PhraseMatcher
-from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
 from .abstract_model import AbstractModel
 
 
@@ -14,23 +12,25 @@ class SpacyProvider(AbstractModel):
 
 
     def __init__(self, aws_s3, **setting: Dict[str, Any]) -> None:
-        model_bucket = setting.get("model_bucket_name", "silvaengine-models")
-        tmp_dir = tempfile.mkdtemp()
 
         # TODO: Parallelize the download and decompression of the following models.
         model_name = setting.get("spacy_model", "en_core_web_sm")
-        # key = f"{model_name}.zip"
-        # zip_path = f"{tmp_dir}/{key}"
-        # model_path = f"{tmp_dir}/{model_name}"
+        try:
+            self.spacy_nlp = spacy.load(model_name)
+        except OSError as e:
+            model_bucket = setting.get("model_bucket_name", "silvaengine-models")
+            tmp_dir = tempfile.mkdtemp()
+            key = f"{model_name}.zip"
+            zip_path = f"{tmp_dir}/{key}"
+            model_path = f"{tmp_dir}/{model_name}"
 
-        # aws_s3.download_file(model_bucket, key, zip_path)
+            aws_s3.download_file(model_bucket, key, zip_path)
 
-        # # Extract the ZIP file
-        # with zipfile.ZipFile(zip_path, "r") as zip_ref:
-        #     zip_ref.extractall(model_path)
+            # Extract the ZIP file
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                zip_ref.extractall(model_path)
 
-        # self.spacy_nlp = spacy.util.load_model_from_path(model_path)
-        self.spacy_nlp = spacy.load(model_name)
+            self.spacy_nlp = spacy.util.load_model_from_path(model_path)
 
         # trf_model_name = setting.get("spacy_trf_model", "en_core_web_trf")
         # key = f"{trf_model_name}.zip"
@@ -45,7 +45,7 @@ class SpacyProvider(AbstractModel):
 
         # self.spacy_nlp_trf = spacy.util.load_model_from_path(trf_model_path)
 
-        self.sentence_trf = SentenceTransformer('all-MiniLM-L6-v2', device='cpu')
+        # self.sentence_trf = SentenceTransformer('all-MiniLM-L6-v2', device='cpu')
 
 
     def extract_entities(self, user_prompt: str, graph_scheme, graph_scheme_attributes) -> Dict[str, Any]:
@@ -83,8 +83,17 @@ class SpacyProvider(AbstractModel):
 
 
     def get_embeddings(self, data) -> Any:
-        embeddings = self.spacy_nlp(json.dumps(data)).vector
+        embeddings = self.spacy_nlp(data).vector.tolist()
         return embeddings
+
+
+    def is_similarity_search(self, user_query: str, system_prompt: str, graph_schema) -> bool:
+        """Check if the user query indicates a similarity search."""
+        return False
+
+
+    def generate_cypher_query(self, user_query: str, system_prompt, graph_schema) -> str:
+        return ""
 
 
     """

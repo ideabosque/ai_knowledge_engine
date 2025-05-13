@@ -2,6 +2,7 @@ import json, re
 from typing import Any, Dict
 from openai import OpenAI
 from .abstract_model import AbstractModel
+from ...handlers.error import InsufficientDetailsError, SchemaRetrievalError
 
 
 class OpenaiProvider(AbstractModel):
@@ -58,9 +59,36 @@ class OpenaiProvider(AbstractModel):
 
     def get_embeddings(self, data) -> Any:
         embeddings = self.openai_client.embeddings.create(
-            input=json.dumps(data), model=self.embedding_model
+            input=data, model=self.embedding_model
         )
         return embeddings.data[0].embedding
+
+
+    def is_similarity_search(self, user_query: str, system_prompt: str, graph_schema) -> bool:
+        """Check if the user query indicates a similarity search."""
+        user_prompt = f"Is this query ({user_query}) a similarity search based on schema: ({graph_schema})?"
+        is_similarity_search = self._base_query(user_prompt, system_prompt)
+        if is_similarity_search.startswith(
+            "The query is ambiguous and does not provide enough information to determine if it pertains to a similarity search. Please provide additional context or clarify your intent."
+        ):
+            raise InsufficientDetailsError(is_similarity_search)
+
+        if is_similarity_search == "true":
+            return True
+        return False
+
+
+    def generate_cypher_query(self, user_query: str, system_prompt, graph_schema) -> str:
+        user_prompt = f"Generate a Cypher query for: {user_query} using schema: {graph_schema}"
+        cypher_query = self._base_query(user_prompt, system_prompt)
+
+        if cypher_query.startswith("Unable to retrieve the graph schema."):
+            raise SchemaRetrievalError(cypher_query)
+
+        if cypher_query.startswith("Could you provide more details?"):
+            raise InsufficientDetailsError(cypher_query)
+
+        return cypher_query
 
 
     """
