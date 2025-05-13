@@ -28,6 +28,7 @@ from .error import InsufficientDetailsError, SchemaRetrievalError
 
 def _get_embedding(text: str) -> List[Dict[str, Any]]:
     text = text.replace("\n", " ")
+    return Config.proxy_large_model.provider.get_embeddings(text)
     res = Config.openai_client.embeddings.create(input=[text], model=Config.embedding_model)
     return res.data[0].embedding
 
@@ -120,6 +121,9 @@ def _lookup_and_merge_results(
 
 def _is_similarity_search(user_query: str) -> bool:
     """Check if the user query indicates a similarity search."""
+    return Config.proxy_large_model.provider.is_similarity_search(
+        user_query, Config.system_contents["is_similarity_search"], Config.graph_schema
+    )
     response = Config.openai_client.chat.completions.create(
         model=Config.openai_model,
         messages=[
@@ -147,6 +151,9 @@ def _is_similarity_search(user_query: str) -> bool:
 
 # Use AI to generate Cypher query dynamically based on schema
 def _generate_cypher_query(user_query: str, graph_schema: str) -> str:
+    return Config.proxy_large_model.provider.generate_cypher_query(
+        user_query, Config.system_contents["generate_cypher_query"], graph_schema
+    )
     response = Config.openai_client.chat.completions.create(
         model=Config.openai_model,
         messages=[
