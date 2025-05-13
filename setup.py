@@ -18,7 +18,7 @@ setup(
     install_requires=[
         "tiktoken",
         "spacy",
-        "b4"
+        "bs4"
     ],
     classifiers=[
         "Programming Language :: Python",
