@@ -17,8 +17,9 @@ setup(
     platforms="Linux",
     install_requires=[
         "tiktoken",
+        "numpy",
         "spacy",
-        "transformers"
+        "bs4"
     ],
     classifiers=[
         "Programming Language :: Python",
