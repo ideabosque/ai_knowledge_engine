@@ -17,8 +17,6 @@ setup(
     platforms="Linux",
     install_requires=[
         "tiktoken",
-        "numpy",
-        "spacy",
         "bs4"
     ],
     classifiers=[

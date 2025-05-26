@@ -21,8 +21,8 @@ class Config:
     graphql_schemes = {}
     test_mode = None
     process_model = None
-    spacy_nlp = None
-    spacy_nlp_trf = None
+    # spacy_nlp = None
+    # spacy_nlp_trf = None
     proxy_large_model = None
 
     @classmethod
@@ -101,39 +101,39 @@ class Config:
         #     cls._initialize_spacy_compenent(setting)
 
 
-    @classmethod
-    def _initialize_spacy_compenent(cls, setting: Dict[str, Any]) -> None:
-        import spacy
+    # @classmethod
+    # def _initialize_spacy_compenent(cls, setting: Dict[str, Any]) -> None:
+    #     import spacy
 
-        model_bucket = setting.get("model_bucket_name", "silvaengine-models")
-        tmp_dir = tempfile.mkdtemp()
+    #     model_bucket = setting.get("model_bucket_name", "silvaengine-models")
+    #     tmp_dir = tempfile.mkdtemp()
 
-        # TODO: Parallelize the download and decompression of the following models.
-        model_name = setting.get("spacy_model", "en_core_web_sm")
-        key = f"{model_name}.zip"
-        zip_path = f"{tmp_dir}/{key}"
-        model_path = f"{tmp_dir}/{model_name}"
+    #     # TODO: Parallelize the download and decompression of the following models.
+    #     model_name = setting.get("spacy_model", "en_core_web_sm")
+    #     key = f"{model_name}.zip"
+    #     zip_path = f"{tmp_dir}/{key}"
+    #     model_path = f"{tmp_dir}/{model_name}"
 
-        cls.aws_s3.download_file(model_bucket, key, zip_path)
+    #     cls.aws_s3.download_file(model_bucket, key, zip_path)
 
-        # Extract the ZIP file
-        with zipfile.ZipFile(zip_path, "r") as zip_ref:
-            zip_ref.extractall(model_path)
+    #     # Extract the ZIP file
+    #     with zipfile.ZipFile(zip_path, "r") as zip_ref:
+    #         zip_ref.extractall(model_path)
 
-        cls.spacy_nlp = spacy.util.load_model_from_path(model_path)
+    #     cls.spacy_nlp = spacy.util.load_model_from_path(model_path)
 
-        trf_model_name = setting.get("spacy_trf_model", "en_core_web_trf")
-        key = f"{trf_model_name}.zip"
-        zip_path = f"{tmp_dir}/{key}"
-        trf_model_path = f"{tmp_dir}/{trf_model_name}"
+    #     trf_model_name = setting.get("spacy_trf_model", "en_core_web_trf")
+    #     key = f"{trf_model_name}.zip"
+    #     zip_path = f"{tmp_dir}/{key}"
+    #     trf_model_path = f"{tmp_dir}/{trf_model_name}"
 
-        cls.aws_s3.download_file(model_bucket, key, zip_path)
+    #     cls.aws_s3.download_file(model_bucket, key, zip_path)
 
-        # Extract the ZIP file
-        with zipfile.ZipFile(zip_path, "r") as zip_ref:
-            zip_ref.extractall(trf_model_path)
+    #     # Extract the ZIP file
+    #     with zipfile.ZipFile(zip_path, "r") as zip_ref:
+    #         zip_ref.extractall(trf_model_path)
 
-        cls.spacy_nlp_trf = spacy.util.load_model_from_path(trf_model_path)
+    #     cls.spacy_nlp_trf = spacy.util.load_model_from_path(trf_model_path)
 
 
     @classmethod
