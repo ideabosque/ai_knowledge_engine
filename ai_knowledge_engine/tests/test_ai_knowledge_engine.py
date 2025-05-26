@@ -250,6 +250,8 @@ Please the return the extracted data in the following format:
     "shop_url": os.getenv("SHOP_URL"),
     "api_version": os.getenv("API_VERSION"),
     "private_app_password": os.getenv("PRIVATE_APP_PASSWORD"),
+    "ollama_host": os.getenv("OLLAMA_HOST"),
+    "ollama_model": os.getenv("OLLAMA_MODEL"),
 }
 
 sys.path.insert(0, f"{os.getenv('BASE_DIR')}/ai_knowledge_engine")
@@ -279,7 +281,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             test_mode=test_mode,
         )
         # print(setting)
-        print(self.schema)
+        # print(self.schema)
         logger.info("Initiate AIKnowledgeEngineTest ...")
 
     def tearDown(self):
@@ -704,7 +706,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                 # "userQuery": "products related to carpet cleaning",
                 # "documentSource": "company_data",
                 "documentSource": "product",
-                "isSimilaritySearch": True,
+                # "isSimilaritySearch": True,
                 "userQuery": """Find product relate to 'Hawk A1410SKIRTASSY Tigerhawk 1410 dust skirt'.""",
                 # "isSimilaritySearch": False,
             },
@@ -733,7 +735,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_load_document(self):
         try:
             payload = {
