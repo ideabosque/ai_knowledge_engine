@@ -1,7 +1,8 @@
 from typing import Any, Dict
 from .large_models.abstract_model import AbstractModel
-from .large_models.spacy_provider import SpacyProvider
+# from .large_models.spacy_provider import SpacyProvider
 from .large_models.openai_provider import OpenaiProvider
+from .large_models.ollama_provider import OllamaProvider
 
 
 class ProxyLargeModel(object):
@@ -12,7 +13,9 @@ class ProxyLargeModel(object):
 
         if process_model == "openai":
             self.provider = OpenaiProvider(**setting)
-        elif process_model == "spacy":
-            self.provider = SpacyProvider(aws_s3_client, **setting)
+        # elif process_model == "spacy":
+        #     self.provider = SpacyProvider(aws_s3_client, **setting)
+        elif process_model == "ollama":
+            self.provider = OllamaProvider(**setting)
         else:
             raise Exception("Invalid provider")
