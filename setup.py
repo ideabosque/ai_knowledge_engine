@@ -16,9 +16,11 @@ setup(
     zip_safe=False,
     platforms="Linux",
     install_requires=[
+        "openai",
+        "typing_extensions",
+        "pydantic",
+        "annotated_types",
         "tiktoken",
-        "numpy",
-        "spacy",
         "bs4"
     ],
     classifiers=[
