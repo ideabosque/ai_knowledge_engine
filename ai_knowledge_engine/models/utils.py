@@ -3,7 +3,35 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
+import logging
 from typing import Any, Dict, List
+from silvaengine_dynamodb_base import BaseModel
+
+
+def _create_table(modelClass: BaseModel, logger: logging.Logger) -> bool:
+    """Create the table if it doesn't exist."""
+    # print(f"{modelClass.Meta.table_name} exists ------: {modelClass.exists()}")
+    if not modelClass.exists():
+        # Create with on-demand billing (PAY_PER_REQUEST)
+        modelClass.create_table(billing_mode="PAY_PER_REQUEST", wait=True)
+        logger.info("The Agent table has been created.")
+    return True
+
+
+def _initialize_tables(logger: logging.Logger) -> None:
+    from .data_source import DataSourceModel
+    from .document_process_entity import DocumentProcessEntityModel
+    from .document_process_task import DocumentProcessTaskModel
+    from .document import DocumentModel
+    from .knowledge_graph_metadata import KnowledgeGraphMetadataModel
+    from .request import RequestModel
+
+    _create_table(DataSourceModel, logger)
+    _create_table(DocumentProcessEntityModel, logger)
+    _create_table(DocumentProcessTaskModel, logger)
+    _create_table(DocumentModel, logger)
+    _create_table(KnowledgeGraphMetadataModel, logger)
+    _create_table(RequestModel, logger)
 
 
 def _get_data_source(endpoint_id: str, data_source_name: str) -> Dict[str, Any]:

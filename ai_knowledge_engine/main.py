@@ -135,12 +135,12 @@ def deploy() -> List:
 
 class AIKnowledgeEngine(SilvaEngineDynamoDBBase):
     def __init__(self, logger: logging.Logger, **setting: Dict[str, Any]) -> None:
+        SilvaEngineDynamoDBBase.__init__(self, logger, **setting)
+
         Config.initialize(logger, **setting)
 
         self.logger = logger
         self.setting = setting
-
-        SilvaEngineDynamoDBBase.__init__(self, logger, **setting)
 
     def ai_knowledge_graphql(self, **params: Dict[str, Any]) -> Any:
         ## Test the waters 🧪 before diving in!
