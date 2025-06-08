@@ -4,7 +4,6 @@ python-dateutil
 sqlalchemy
 pynamodb
 boto3
-deepdiff
 tenacity
 pendulum
 humps
@@ -12,7 +11,4 @@ neo4j
 redis
 openai
 beautifulsoup4
-
-#spacy
-#sentence_transformers
-#numpy==1.26.4
+typing-inspection

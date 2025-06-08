@@ -1,7 +1,8 @@
 import boto3, logging, sys, os, traceback, zipfile, tempfile
 from typing import Dict, List, Any, Optional, Callable
 from silvaengine_utility import Utility
-from ..providers.proxy_large_model  import ProxyLargeModel
+from ..providers.proxy_large_model import ProxyLargeModel
+from ..models import utils
 
 class Config:
     openai_client = None
@@ -45,6 +46,8 @@ class Config:
             #     function_name="ai_knowledge_graphql",
             #     logger=logging.Logger("ai_knowledge_graphql"),
             # )
+            if setting.get("test_mode") == "local_for_all":
+                cls._initialize_tables(logger)
             logger.info("Configuration initialized successfully.")
         except Exception as e:
             logger.exception("Failed to initialize configuration.")
@@ -200,6 +203,15 @@ class Config:
             )
 
         return cls.graphql_schemes[function_name]
+
+
+    @classmethod
+    def _initialize_tables(cls, logger: logging.Logger) -> None:
+        """
+        Initialize database tables by calling the utils._initialize_tables() method.
+        This is an internal method used during configuration setup.
+        """
+        utils._initialize_tables(logger)
 
 
     @classmethod
