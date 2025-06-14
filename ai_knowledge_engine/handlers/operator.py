@@ -40,6 +40,8 @@ class Operator:
                 if "type" in entity:
                     node_type = entity['type']
                     properties = []
+                    if entity.get('properties') and type(entity['properties']) is dict:
+                        entity.update(entity.get('properties'))
 
                     for key, value in entity.items():
                         if key == 'type':
@@ -65,7 +67,54 @@ class Operator:
         except Exception as e:
             print(f"Error: {e}")
             raise e
-        
+
+    def _generate_cypher_upsert_statments(self, data: Dict[str, Any]) -> list:
+        """
+        Generate Cypher statements for the given data.
+        """
+        try:
+            type_datas = {}
+            for entity in data.get('entities', []):
+                if "type" in entity:
+                    node_type = entity['type']
+                    properties = {}
+                    if entity.get('properties') and type(entity['properties']) is dict:
+                        entity.update(entity.get('properties'))
+
+                    for key, value in entity.items():
+                        if key == 'type':
+                            continue
+                        elif key.lower() in self.graph_attributes:
+                            properties[key] = value.replace("'", "\\'") if isinstance(value, str) else value
+
+                    if len(properties) > 0:
+                        if node_type not in type_datas:
+                            type_datas[node_type] = []
+                        type_datas[node_type].append(properties)
+
+            for relation in data.get('relations', []):
+                print(f">>>>>>>>>>>>> relation:{relation}\n")
+
+            if len(type_datas) > 0:
+                cypher_statements = []
+                for node_type, node_data in type_datas.items():
+                    query = """
+UNWIND $nodes AS node 
+MERGE (n:%s {name: node.name}) 
+ON CREATE SET n = node 
+ON MATCH SET n += node
+""" % (node_type)
+                    cypher_statements.append({
+                        "query": query,
+                        "nodes": node_data
+                    })
+                return cypher_statements
+
+            return None
+        except Exception as e:
+            print(f"Error: {e}")
+            raise e
+
     def _create_vector_database_index(self):
         """
         Create vector database index
@@ -112,14 +161,6 @@ class Operator:
 
             return Config.proxy_large_model.provider.get_embeddings(json.dumps(data))
 
-            if not Config.process_model and str(Config.process_model).strip().lower() == "openai":
-                embeddings = Config.openai_client.embeddings.create(
-                    input=json.dumps(data), model=Config.embedding_model
-                )
-                return embeddings.data[0].embedding
-            else:
-                embeddings = Config.spacy_nlp(json.dumps(data)).vector
-                return embeddings
         except Exception as e:
             print(e)
             return None
@@ -166,6 +207,7 @@ class Operator:
                 print(f"Error: {e}")
                 print(f"Retrying... Attempt {retry_count}")
                 time.sleep(2 ** retry_count)
+
     def save_vector_document(self, obj: Dict[str, Any], documentId: str, embedding: Any):
         """
         Save vector document to vector database
@@ -207,17 +249,26 @@ class Operator:
             
             print(f"\n>>>>>>>>>> 2. Extracted Entities Verify: {entities}")
             
-            cypher_query = self._generate_cypher_statments(entities)
+            # cypher_query = self._generate_cypher_statments(entities)
 
-            print(f"\n>>>>>>>>>> 2. Generated Cypher Statment: {cypher_query}")
+            # print(f"\n>>>>>>>>>> 2. Generated Cypher Statment: {cypher_query}")
 
-            if type(cypher_query) is str and len(cypher_query) > 0:
-                print(f"\n>>>>>>>>>> 4. Excute Cypher Query: {cypher_query}\n\n")
-                with Config.graph_db_connector.driver.session(
-                    database=Config.graph_db_connector.database
-                ) as session:
-                    session.run(cypher_query)
-                # session.close()
-                print("\n=================== Save graph document successful")
+            # if type(cypher_query) is str and len(cypher_query) > 0:
+            #     print(f"\n>>>>>>>>>> 4. Excute Cypher Query: {cypher_query}\n\n")
+            #     with Config.graph_db_connector.driver.session(
+            #         database=Config.graph_db_connector.database
+            #     ) as session:
+            #         session.run(cypher_query)
+            #     # session.close()
+            #     print("\n=================== Save graph document successful")
+            cypher_query_list = self._generate_cypher_upsert_statments(entities)
+            print(f"\n --------- Cypher query list --------: {cypher_query_list}")
+            if cypher_query_list:
+                for cypher_query in cypher_query_list:
+                    with Config.graph_db_connector.driver.session(
+                        database=Config.graph_db_connector.database
+                    ) as session:
+                        session.run(cypher_query.get('query'), nodes = cypher_query.get('nodes'))
+
         except Exception as e:
             raise e

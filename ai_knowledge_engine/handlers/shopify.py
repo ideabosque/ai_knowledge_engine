@@ -129,7 +129,7 @@ class ShopifyHandler:
             "id": product.id,
             "product_name": product.title,
             "handle": product.handle,
-            "meta_description": text_util.remove_html_tags(product.body_html) if product.body_html else "",
+            "meta_description": text_util._remove_html_tags(product.body_html) if product.body_html else "",
             "category": product.product_type if product.product_type else "",
             "meta_keywords": product.tags if product.tags else "",
             "brand_name": product.vendor if product.vendor else "",

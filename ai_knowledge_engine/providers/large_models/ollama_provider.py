@@ -1,6 +1,7 @@
 import json, re, requests
 from typing import Any, Dict
 from .abstract_model import AbstractModel
+from ...utils.embedding import _tranform_embedding
 
 
 class OllamaProvider(AbstractModel):
@@ -72,7 +73,11 @@ class OllamaProvider(AbstractModel):
         )
         # print(response.status_code, response.json())
         if response.status_code == 200:
-            return response.json()["embeddings"][0]
+            # original_embedding = response.json()["embeddings"][0]
+            original_embeddings = response.json()["embeddings"]
+            # load umap model and transform
+            reduced_embeddings = _tranform_embedding(original_embeddings)
+            return reduced_embeddings[0]
         else:
             print("request embedding failure:", response.text)
             return []
@@ -124,7 +129,7 @@ class OllamaProvider(AbstractModel):
             json_result = json.loads(json_str)
             return json_result
         else:
-            raise("request failure: " + response.text)
+            raise Exception("request failure: " + response.text)
 
 
     def _clean_data(self, text: str) -> str:

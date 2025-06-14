@@ -707,8 +707,9 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                 # "documentSource": "company_data",
                 "documentSource": "product",
                 # "isSimilaritySearch": True,
-                "userQuery": """Find product relate to 'Hawk A1410SKIRTASSY Tigerhawk 1410 dust skirt'.""",
-                # "isSimilaritySearch": False,
+                # "userQuery": """Find product relate to 'Hawk A1410SKIRTASSY Tigerhawk 1410 dust skirt'.""",
+                "userQuery": """Find product relate to 'Betco E2210000 Squeegee Blade Front Red Linatex for Stealth DRS21BT'.""",
+                "isSimilaritySearch": True,
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -772,7 +773,8 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                     "documentSource": "product",
                     "endpointId": "cleaning-stuff",
                     # "objectKey": "companies/cleaning-stuff-products.csv",
-                    "objectKey": "cleaning-stuff-products-test.csv",
+                    # "objectKey": "cleaning-stuff-products-test.csv",
+                    "objectKey": "cleaning-stuff-products-test.txt",
                     "skipHeader": True,
                     "embeddingAttributes": [
                         "product_name",

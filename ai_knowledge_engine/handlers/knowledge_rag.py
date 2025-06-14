@@ -29,8 +29,6 @@ from .error import InsufficientDetailsError, SchemaRetrievalError
 def _get_embedding(text: str) -> List[Dict[str, Any]]:
     text = text.replace("\n", " ")
     return Config.proxy_large_model.provider.get_embeddings(text)
-    res = Config.openai_client.embeddings.create(input=[text], model=Config.embedding_model)
-    return res.data[0].embedding
 
 
 def _lookup_and_merge_results(
@@ -49,6 +47,7 @@ def _lookup_and_merge_results(
     Returns:
         List[Dict[str, Any]]: The merged results, combining vector and graph data.
     """
+    print(f"----------merge_rule...:{merge_rule}")
     try:
         vector_merge_key = merge_rule["vector_merge_key"]
         graph_merge_node = merge_rule["graph_merge_node"]
@@ -56,14 +55,17 @@ def _lookup_and_merge_results(
         vector_attributes = merge_rule["vector_attributes_to_include"]
 
         # Extract transaction IDs from vector results for lookup
-        transaction_ids = [
-            f"{vector_item.get(vector_merge_key)}"
-            for vector_item in vector_results
-            if vector_item.get(vector_merge_key)
-        ]
+        transaction_ids = []
+        valid_vector_results = []
+        for vector_item in vector_results:
+            if not vector_item.get(vector_merge_key):
+                continue
+            transaction_ids.append(f"{vector_item.get(vector_merge_key)}")
+            valid_vector_results.append(vector_item)
 
         if not transaction_ids:
             return []
+        print(f"\n---transaction_ids : {transaction_ids}\n")
 
         cypher_query = _generate_cypher_query(
             f"""Retrieve the node ({graph_merge_node}) associated with `{graph_merge_key}` within the specified `{transaction_ids}`. Return the node as `node`.""",
@@ -94,7 +96,7 @@ def _lookup_and_merge_results(
 
         # Merge vector results with corresponding graph data
         merged_results = []
-        for vector_item in vector_results:
+        for vector_item in valid_vector_results:
             merged_item = {vector_merge_key: vector_item.get(vector_merge_key)}
 
             # Add vector attributes to the merged result
@@ -124,29 +126,6 @@ def _is_similarity_search(user_query: str) -> bool:
     return Config.proxy_large_model.provider.is_similarity_search(
         user_query, Config.system_contents["is_similarity_search"], Config.graph_schema
     )
-    response = Config.openai_client.chat.completions.create(
-        model=Config.openai_model,
-        messages=[
-            {
-                "role": "system",
-                "content": Config.system_contents["is_similarity_search"],
-            },
-            {
-                "role": "user",
-                "content": f"Is this query ({user_query}) a similarity search based on schema: ({Config.graph_schema})?",
-            },
-        ],
-    )
-    is_similarity_search = response.choices[0].message.content
-
-    if is_similarity_search.startswith(
-        "The query is ambiguous and does not provide enough information to determine if it pertains to a similarity search. Please provide additional context or clarify your intent."
-    ):
-        raise InsufficientDetailsError(is_similarity_search)
-
-    if is_similarity_search == "true":
-        return True
-    return False
 
 
 # Use AI to generate Cypher query dynamically based on schema
@@ -154,28 +133,6 @@ def _generate_cypher_query(user_query: str, graph_schema: str) -> str:
     return Config.proxy_large_model.provider.generate_cypher_query(
         user_query, Config.system_contents["generate_cypher_query"], graph_schema
     )
-    response = Config.openai_client.chat.completions.create(
-        model=Config.openai_model,
-        messages=[
-            {
-                "role": "system",
-                "content": Config.system_contents["generate_cypher_query"],
-            },
-            {
-                "role": "user",
-                "content": f"Generate a Cypher query for: {user_query} using schema: {graph_schema}",
-            },
-        ],
-    )
-    cypher_query = response.choices[0].message.content
-
-    if cypher_query.startswith("Unable to retrieve the graph schema."):
-        raise SchemaRetrievalError(cypher_query)
-
-    if cypher_query.startswith("Could you provide more details?"):
-        raise InsufficientDetailsError(cypher_query)
-
-    return cypher_query
 
 
 @retry(
@@ -218,6 +175,9 @@ def _query_vector(
     """Executes a query on the vector search engine."""
     try:
         query_vector = _get_embedding(user_query)
+        print(f"\n--------query_vector...: {len(query_vector)}")
+        if len(query_vector) == 0:
+            raise Exception("Query vector is empty!")
         return Config.vector_db_connector.search_vector(query_vector, index_name, **kwargs)
     except Exception as e:
         logger.error(f"Vector query failed: {traceback.format_exc()}")
@@ -239,6 +199,7 @@ def _process_and_merge_results(
     index_name = f"{knowledge_graph_metadata.endpoint_id}:{knowledge_graph_metadata.document_source}"
     logger.info(f"Index name: {index_name}")
 
+    print(f"is_similarity_search...:{is_similarity_search}")
     if is_similarity_search:
         _kwargs = {
             "vector_field": kwargs.get("vector_field"),
@@ -253,6 +214,7 @@ def _process_and_merge_results(
         vector_results_total, vector_results = _query_vector(
             logger, user_query, index_name, **_kwargs
         )
+        print(f"\n --------vector_results...: {vector_results_total} : {vector_results}")
 
         merged_results = _lookup_and_merge_results(
             logger,

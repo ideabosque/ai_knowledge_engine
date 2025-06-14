@@ -98,17 +98,18 @@ class S3DataProcessor:
                     print(f"\n*** LINE NUMBER: {i} ***************************************************\n\n\n")
                     data = line.decode('utf-8').strip()
                     obj = parser.parse(header, data)
+                    print(f"\n----------------parse data: {obj}")
 
                     if type(obj) is dict and len(obj) > 0:
                         document_uuid = uuid.uuid4().hex
                         embedding = operator.embedding(obj=obj)
                         entities = extractor.extract_entities(json.dumps(obj))
                         print("\n----------------extract_entities start: ")
+                        print(f"\n vector dim length: ", len(embedding))
                         print(entities)
                         print("\n----------------extract_entities end: ")
                         if not embedding or type(entities) is not dict or not entities.get('entities'):
                             continue
-
                         # 1. Write data to vector database
                         operator.save_vector_document(obj, document_uuid, embedding)
                         # 2. Save data to dynamodb
@@ -139,6 +140,11 @@ class S3DataProcessor:
                         if self.token_count >= chunk_size_for_unstructured:
                             # 1. Extract entities from the chunk
                             entities = extractor.extract_entities(extractor.clean_data(chunk))
+                            print("\n----------------extract_entities start: ")
+                            print(entities)
+                            print("\n----------------extract_entities end: ")
+                            if type(entities) is not dict or not entities.get('entities'):
+                                continue
                             # 2. Save entities to the graph database
                             operator.save_graph_document(entities)
                             document_uuid = uuid.uuid4().hex
