@@ -690,7 +690,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    @unittest.skip("demonstrating skipping")
+    # @unittest.skip("demonstrating skipping")
     def test_graphql_knowledge_rag(self):
         query = Utility.generate_graphql_operation("knowledgeRag", "Query", self.schema)
         logger.info(f"Query: {query}")
@@ -709,6 +709,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                 # "isSimilaritySearch": True,
                 # "userQuery": """Find product relate to 'Hawk A1410SKIRTASSY Tigerhawk 1410 dust skirt'.""",
                 "userQuery": """Find product relate to 'Betco E2210000 Squeegee Blade Front Red Linatex for Stealth DRS21BT'.""",
+                "userQuery": """NaceCare NQ100""",
                 "isSimilaritySearch": True,
             },
         }
@@ -736,7 +737,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_load_document(self):
         try:
             payload = {
@@ -773,9 +774,10 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                     "documentSource": "product",
                     "endpointId": "cleaning-stuff",
                     # "objectKey": "companies/cleaning-stuff-products.csv",
-                    # "objectKey": "cleaning-stuff-products-test.csv",
-                    "objectKey": "cleaning-stuff-products-test.txt",
+                    "objectKey": "cleaning-stuff-products-test.csv",
                     "skipHeader": True,
+                    # "objectKey": "cleaning-stuff-products-test.txt",
+                    # "skipHeader": False,
                     "embeddingAttributes": [
                         "product_name",
                         "meta_keywords",

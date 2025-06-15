@@ -4,6 +4,7 @@ import uuid
 import pendulum
 import logging
 import humps
+import re
 from graphene import ResolveInfo
 from silvaengine_utility import Utility
 from typing import Any,  Dict, List
@@ -53,7 +54,7 @@ class S3DataProcessor:
             vector_scheme_attributes=vector_scheme_attributes,
             embedding_attributes=embedding_attributes,
         )
-        document_title = f"Processed Document <{Config}>"
+        document_title = f"Processed Document <{object_key}>"
         response = Config.aws_s3.get_object(Bucket=Config.aws_s3_bucket, Key=object_key, Range=f"bytes={position}-")
         stream = response['Body']
         chunk_index = 0
@@ -95,20 +96,25 @@ class S3DataProcessor:
                             i+=1
                             continue
                     i += 1
+                    if i==2:
+                        continue
                     print(f"\n*** LINE NUMBER: {i} ***************************************************\n\n\n")
                     data = line.decode('utf-8').strip()
+                    # print(f"\n----------------header: {header} \n------data: {data}")
                     obj = parser.parse(header, data)
-                    print(f"\n----------------parse data: {obj}")
 
                     if type(obj) is dict and len(obj) > 0:
                         document_uuid = uuid.uuid4().hex
-                        embedding = operator.embedding(obj=obj)
+                        obj = {k: v for k, v in obj.items() if v}
                         entities = extractor.extract_entities(json.dumps(obj))
                         print("\n----------------extract_entities start: ")
-                        print(f"\n vector dim length: ", len(embedding))
                         print(entities)
                         print("\n----------------extract_entities end: ")
-                        if not embedding or type(entities) is not dict or not entities.get('entities'):
+                        if not entities or type(entities) is not dict or not entities.get('entities'):
+                            continue
+                        embedding = operator.embedding(obj=obj)
+                        print(f"\n vector dim length: ", len(embedding))
+                        if not embedding:
                             continue
                         # 1. Write data to vector database
                         operator.save_vector_document(obj, document_uuid, embedding)
@@ -130,14 +136,15 @@ class S3DataProcessor:
 
                     else: # Unstructured data
                         chunk += data
-                        tokens = extractor.tokenize_text(data)
+                        # tokens = extractor.tokenize_text(data)
+                        tokens = len(re.findall(r'\b[\w\'-]+\b', data))
 
                         if type(tokens) is list:
                             self.token_count += len(tokens)
 
-
                         # Once per 1000 tokens
                         if self.token_count >= chunk_size_for_unstructured:
+                            print(f"\n----------------chunk : \n{chunk} -----------\n")
                             # 1. Extract entities from the chunk
                             entities = extractor.extract_entities(extractor.clean_data(chunk))
                             print("\n----------------extract_entities start: ")
@@ -147,11 +154,47 @@ class S3DataProcessor:
                                 continue
                             # 2. Save entities to the graph database
                             operator.save_graph_document(entities)
+                            for entity in entities.get('entities'):
+                                document_uuid = uuid.uuid4().hex
+                                # 3. Convert the entities to embeddings
+                                embedding = operator.embedding(obj=entity)
+                                # 4. Save the embeddings to the vector database
+                                operator.save_vector_document(entity, document_uuid, embedding)
+                                # 5. Save the document chunk to dynamodb
+                                operator.save_document_chuck(
+                                    raw=chunk,
+                                    document_uuid=document_uuid,
+                                    document_title=document_title,
+                                    document_external_id=document_external_id,
+                                    embeddings=embedding,
+                                    editor=editor,
+                                    max_retries=max_retries,
+                                )
+                            self.token_count = 0
+                            chunk_index += 1
+                            chunk = ""
+                except Exception as e:
+                    print(traceback.format_exc())
+                    continue
+
+            # process last chunk
+            if chunk:
+                try:
+                    print(f"\n----------------chunk : \n{chunk} -----------\n")
+                    # 1. Extract entities from the chunk
+                    entities = extractor.extract_entities(extractor.clean_data(chunk))
+                    print("\n----------------extract_entities start: ")
+                    print(entities)
+                    print("\n----------------extract_entities end: ")
+                    if type(entities) is dict or entities.get('entities'):
+                        # 2. Save entities to the graph database
+                        operator.save_graph_document(entities)
+                        for entity in entities.get('entities'):
                             document_uuid = uuid.uuid4().hex
                             # 3. Convert the entities to embeddings
-                            embedding = operator.embedding(obj=entities)
+                            embedding = operator.embedding(obj=entity)
                             # 4. Save the embeddings to the vector database
-                            operator.save_vector_document(obj, document_uuid, embedding)
+                            operator.save_vector_document(entity, document_uuid, embedding)
                             # 5. Save the document chunk to dynamodb
                             operator.save_document_chuck(
                                 raw=chunk,
@@ -162,14 +205,11 @@ class S3DataProcessor:
                                 editor=editor,
                                 max_retries=max_retries,
                             )
-                            self.token_count = 0
-                            chunk_index += 1
                 except Exception as e:
                     print(traceback.format_exc())
-                    continue
         except Exception as e:
-            response = Config.aws_s3.get_object(Bucket=Config.aws_s3_bucket, Key=object_key, Range=f"bytes={position}-")
-            stream = response['Body']
+            # response = Config.aws_s3.get_object(Bucket=Config.aws_s3_bucket, Key=object_key, Range=f"bytes={position}-")
+            # stream = response['Body']
             print(f"Skip: {e}")
             pass
 

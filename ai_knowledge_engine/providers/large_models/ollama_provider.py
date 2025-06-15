@@ -2,6 +2,7 @@ import json, re, requests
 from typing import Any, Dict
 from .abstract_model import AbstractModel
 from ...utils.embedding import _tranform_embedding
+from ...utils.text_util import _remove_html_tags
 
 
 class OllamaProvider(AbstractModel):
@@ -41,7 +42,7 @@ class OllamaProvider(AbstractModel):
         ...
     ]
 }}"""
-
+        user_prompt = _remove_html_tags(user_prompt)
         response = self._base_query(user_prompt, system_prompt)
         entities = []
         if "entities" in response:
@@ -123,6 +124,7 @@ class OllamaProvider(AbstractModel):
                 # }
             }
         )
+        # print(f"\n---------------ollam-response: ------\n {response}")
         if response.status_code == 200:
             # llama3.1
             json_str = response.json()["message"]["content"]
