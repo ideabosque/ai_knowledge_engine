@@ -1,10 +1,11 @@
 import numpy as np
 import pickle
 
-def _load_trained_model(file: str):
+def _load_trained_model(file: str, model_path: str = None):
     """load pre trained model"""
-    import os
-    model_path = os.path.dirname(os.path.abspath(__file__)) + '/../../trained_models'
+    import os, tempfile
+    if model_path is None:
+        model_path = os.path.join(tempfile.gettempdir(), "trained_models")
     os.makedirs(model_path, exist_ok=True)
 
     path = os.path.join(model_path, file)

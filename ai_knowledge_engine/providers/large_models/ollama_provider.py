@@ -1,4 +1,4 @@
-import json, re, requests
+import json, re, requests, tempfile, os, zipfile
 from typing import Any, Dict
 from .abstract_model import AbstractModel
 from ...utils.embedding import _tranform_embedding
@@ -8,8 +8,9 @@ from ...utils.text_util import _remove_html_tags
 class OllamaProvider(AbstractModel):
     ollama_host = None
     ollama_model = None
+    trained_models_path = None
 
-    def __init__(self, **setting: Dict[str, Any]) -> None:
+    def __init__(self, aws_s3, **setting: Dict[str, Any]) -> None:
         if "ollama_host" not in setting:
             raise Exception("ollama_host is required")
         if "ollama_model" not in setting:
@@ -17,6 +18,22 @@ class OllamaProvider(AbstractModel):
 
         self.ollama_host = setting["ollama_host"]
         self.ollama_model = setting["ollama_model"]
+
+        model_name = setting.get("trained_model", "trained_models")
+        temp_dir = tempfile.gettempdir()
+        os.makedirs(temp_dir, exist_ok=True)
+        self.trained_models_path = os.path.join(temp_dir, "trained_models")
+
+        if not os.path.exists(os.path.join(self.trained_models_path, "pca_embedding.pkl")):
+            key = f"{model_name}.zip"
+            temp_file = os.path.join(temp_dir, key)
+
+            model_bucket = setting.get("model_bucket_name", "silvaengine-models")
+            aws_s3.download_file(model_bucket, key, temp_file)
+            # unzip
+            with zipfile.ZipFile(temp_file, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+        print(f"\n------------ {self.trained_models_path} ----------: {os.listdir(self.trained_models_path)} \n")
 
 
     def extract_entities(self, user_prompt: str, graph_scheme, graph_scheme_attributes) -> Dict[str, Any]:
