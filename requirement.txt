@@ -12,4 +12,3 @@ redis
 openai
 beautifulsoup4
 typing-inspection
-numpy

@@ -3,6 +3,7 @@ import json, pendulum, uuid, time
 from typing import Any, Dict, List
 from .config import Config
 from ..models.document import DocumentModel
+from ..models.document_process_error import DocumentProcessErrorModel
 
 class Operator:
     def __init__(
@@ -153,7 +154,7 @@ ON MATCH SET n += node
             data = []
 
             for key in self.embedding_attributes:
-                if key in obj:
+                if key in obj and obj[key]:
                     data.append(obj[key])
 
             if len(data) < 1:
@@ -193,7 +194,7 @@ ON MATCH SET n += node
                     document_title=f"{document_title} ",
                     document_content=raw,
                     chunk_index=chunk_index,
-                    title_embedding=embeddings,
+                    title_embedding=[],
                     content_embedding=embeddings,
                     created_at=now,
                     updated_at=now,
@@ -206,6 +207,48 @@ ON MATCH SET n += node
                 retry_count += 1
                 print(f"Error: {e}")
                 print(f"Retrying... Attempt {retry_count}")
+                time.sleep(2 ** retry_count)
+
+    def save_document_process_error(
+            self, 
+            raw:str, 
+            process_error_uuid: str,
+            document_external_id: str,
+            document_title:str,
+            chunk_index:int = 0,
+            error_message:str = "",
+            editor:str = "",
+            max_retries: int = 3,
+        ):
+        """
+        Save document chunk to dynamodb
+        """
+        retry_count = 0
+
+        while retry_count < max_retries:
+            try:
+                now = pendulum.now("UTC")
+                DocumentProcessErrorModel(
+                    document_source=self.document_source,
+                    process_error_uuid=f"{process_error_uuid}",
+                    document_external_id=f"{document_external_id}",
+                    endpoint_id=self.endpoint_id,
+                    document_title=f"{document_title}",
+                    document_content=raw,
+                    chunk_index=chunk_index,
+                    error_message=error_message,
+                    process_status="new",
+                    process_count=0,
+                    created_at=now,
+                    updated_at=now,
+                    updated_by=editor,
+                ).save()
+
+                print(f"\n\n=================== Save DocumentProcessError to dynamodb successful: {process_error_uuid}")
+                break
+            except Exception as e:
+                retry_count += 1
+                print(f"Error: {e}")
                 time.sleep(2 ** retry_count)
 
     def save_vector_document(self, obj: Dict[str, Any], documentId: str, embedding: Any):
@@ -221,8 +264,8 @@ ON MATCH SET n += node
 
             if type(self.vector_scheme_attributes) is dict and len(self.vector_scheme_attributes) > 0:
                 for k,v in self.vector_scheme_attributes.items():
-                    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>",obj.get(k, ""))
-                    document[v] = obj.get(k, "")
+                    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>",obj.get(k, ""), obj.get(v, ""))
+                    document[v] = obj.get(k, "") if k in obj else obj.get(v, "")
 
             print(f"\n\n=================== Save vector document successful: {documentId}")
             print(self._generate_vector_database_index_name())
@@ -236,6 +279,7 @@ ON MATCH SET n += node
         except Exception as e:
             print(e)
             raise e
+
     def save_graph_document(self, entities:Dict[str, Any]):
         """
         Extract entities from the given object and save them to the graph database.

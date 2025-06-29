@@ -11,6 +11,9 @@ class Extractor:
         self.attributes = list(attributes.values())
 
         self._completion_graph_scheme_attributes(document_source=document_source,attributes=attributes)
+        print(self.graph_scheme)
+        print("\n----------graph_scheme_attributes-------------\n")
+        print(self.graph_scheme_attributes)
 
     def extract_entities(self, user_prompt: str) -> Dict[str, Any]:
         """

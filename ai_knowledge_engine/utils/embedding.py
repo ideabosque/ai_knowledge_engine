@@ -1,4 +1,4 @@
-import numpy as np
+# import numpy as np
 import pickle
 
 def _load_trained_model(file: str, model_path: str = None):
@@ -14,15 +14,24 @@ def _load_trained_model(file: str, model_path: str = None):
     return model
 
 
+def _get_dimension(arr):
+    if not isinstance(arr, (list, tuple)):
+        return 0
+    if not arr:  # 空列表
+        return 1
+    return 1 + _get_dimension(arr[0])
+
 def _tranform_embedding(embeddings):
     scaler = _load_trained_model("scaler_embedding.pkl")
     pca = _load_trained_model("pca_embedding.pkl")
     umap_reducer = _load_trained_model("umap_reducer_embedding.pkl")
 
-    embeddings = np.array(embeddings)
+    # embeddings = np.array(embeddings)
     # must be 2darray
-    if embeddings.ndim == 1:
-        embeddings = embeddings.reshape(1, -1)
+    # if embeddings.ndim == 1:
+    #     embeddings = embeddings.reshape(1, -1)
+    if _get_dimension(embeddings) == 1:
+        embeddings = [embeddings]
 
     embedding_scaled = scaler.transform(embeddings)
     embedding_pca = pca.transform(embedding_scaled)

@@ -69,7 +69,9 @@ class S3DataProcessor:
             for line in stream.iter_lines():
                 try:
                     # Invoke self if the excute time is greater than 5 minutes
-                    if pendulum.now("UTC") - excute_start_time > pendulum.duration(minutes=5):
+                    # if pendulum.now("UTC") - excute_start_time > pendulum.duration(minutes=5):
+                    if i>5:
+                        print("++++++++++++++++++++++++++invoke_self+++++++++++++++++++++++++++")
                         self.invoke_self(
                             info=info,
                             document_source=document_source,
@@ -96,8 +98,6 @@ class S3DataProcessor:
                             i+=1
                             continue
                     i += 1
-                    if i==2:
-                        continue
                     print(f"\n*** LINE NUMBER: {i} ***************************************************\n\n\n")
                     data = line.decode('utf-8').strip()
                     # print(f"\n----------------header: {header} \n------data: {data}")
@@ -111,13 +111,13 @@ class S3DataProcessor:
                         print(entities)
                         print("\n----------------extract_entities end: ")
                         if not entities or type(entities) is not dict or not entities.get('entities'):
-                            continue
-                        embedding = operator.embedding(obj=obj)
-                        print(f"\n vector dim length: ", len(embedding))
+                            raise Exception("No entities extracted")
+                        precise_entity = entities.get('entities')[0]
+                        embedding = operator.embedding(obj=precise_entity)
                         if not embedding:
-                            continue
+                            raise Exception("No embedding generated")
                         # 1. Write data to vector database
-                        operator.save_vector_document(obj, document_uuid, embedding)
+                        operator.save_vector_document(precise_entity, document_uuid, embedding)
                         # 2. Save data to dynamodb
                         operator.save_document_chuck(
                             raw=data,
@@ -174,6 +174,15 @@ class S3DataProcessor:
                             chunk_index += 1
                             chunk = ""
                 except Exception as e:
+                    process_error_uuid = uuid.uuid4().hex
+                    operator.save_document_process_error(
+                        raw=json.dumps(obj) if type(obj) is dict else chunk,
+                        process_error_uuid=process_error_uuid,
+                        document_external_id=document_external_id,
+                        document_title=document_title,
+                        chunk_index=chunk_index,
+                        error_message=str(e),
+                    )
                     print(traceback.format_exc())
                     continue
 

@@ -7,6 +7,7 @@ __author__ = "bibow"
 import functools
 import logging
 import traceback
+import json
 from typing import Any, Callable, Dict, List, Tuple
 
 from graphene import ResolveInfo
@@ -58,29 +59,34 @@ def _lookup_and_merge_results(
         transaction_ids = []
         valid_vector_results = []
         for vector_item in vector_results:
-            if not vector_item.get(vector_merge_key):
+            # Similarity greater than or equeal 0.6, The distance must be not greater than 0.4
+            if vector_item.get(vector_merge_key, '') == "" or float(vector_item.get("vector_score", 1.0)) > 0.4:
                 continue
+            print(vector_item, vector_item.get(vector_merge_key))
             transaction_ids.append(f"{vector_item.get(vector_merge_key)}")
             valid_vector_results.append(vector_item)
 
         if not transaction_ids:
             return []
-        print(f"\n---transaction_ids : {transaction_ids}\n")
 
-        cypher_query = _generate_cypher_query(
-            f"""Retrieve the node ({graph_merge_node}) associated with `{graph_merge_key}` within the specified `{transaction_ids}`. Return the node as `node`.""",
-            Config.graph_schema,
-        )
+        graph_results = []
+        # try:
+        #     cypher_query = _generate_cypher_query(
+        #         f"""Retrieve the node ({graph_merge_node}) associated with `{graph_merge_key}` within the specified `{transaction_ids}`. Return the node as `node`.""",
+        #         Config.graph_schema,
+        #     )
 
-        logger.info(f"Generated Cypher query for bulk lookup: {cypher_query}")
+        #     logger.info(f"Generated Cypher query for bulk lookup: {cypher_query}")
 
-        # Execute the Cypher query
-        _, graph_results = Config.graph_db_connector.execute_cypher_query_with_pagination(
-            cypher_query,
-            limit=len(transaction_ids),
-            skip=0,
-            get_total=False,
-        )
+        #     # Execute the Cypher query
+        #     _, graph_results = Config.graph_db_connector.execute_cypher_query_with_pagination(
+        #         cypher_query,
+        #         limit=len(transaction_ids),
+        #         skip=0,
+        #         get_total=False,
+        #     )
+        # except Exception as e:
+        #     logger.error(f"Error executing Cypher query: {e}")
 
         # Organize graph results into a lookup dictionary
         graph_lookup = {}
@@ -109,8 +115,8 @@ def _lookup_and_merge_results(
             )
 
             # Add graph attributes if available
-            graph_data = graph_lookup.get(vector_item.get(vector_merge_key), {})
-            merged_item.update(graph_data)
+            # graph_data = graph_lookup.get(vector_item.get(vector_merge_key), {})
+            # merged_item.update(graph_data)
 
             merged_results.append(merged_item)
 
@@ -197,13 +203,14 @@ def _process_and_merge_results(
     # Retrieve metadata and merge results
     knowledge_graph_metadata = _get_enabled_knowledge_graph_metadata(document_source)
     index_name = f"{knowledge_graph_metadata.endpoint_id}:{knowledge_graph_metadata.document_source}"
+    vector_attributes = knowledge_graph_metadata.merge_rule["vector_attributes_to_include"]
     logger.info(f"Index name: {index_name}")
 
     print(f"is_similarity_search...:{is_similarity_search}")
     if is_similarity_search:
         _kwargs = {
             "vector_field": kwargs.get("vector_field"),
-            "fields_to_return": kwargs.get("fields_to_return"),
+            "fields_to_return": kwargs.get("fields_to_return", vector_attributes),
             **{
                 key: kwargs[key]
                 for key in ["filter_conditions", "top_k", "result_offset", "limit"]
@@ -214,7 +221,6 @@ def _process_and_merge_results(
         vector_results_total, vector_results = _query_vector(
             logger, user_query, index_name, **_kwargs
         )
-        print(f"\n --------vector_results...: {vector_results_total} : {vector_results}")
 
         merged_results = _lookup_and_merge_results(
             logger,
@@ -229,6 +235,7 @@ def _process_and_merge_results(
     logger.info(f"Generated Cypher query: {cypher_query}")
 
     # Query functions
+    # cypher_query = 'MATCH (p:Product {name: "Betco E2210000 Squeegee Blade Front Red Linatex for Stealth DRS21BT"}) RETURN p AS node'
     graph_results_total, graph_results = _query_graph(
         logger,
         document_source,

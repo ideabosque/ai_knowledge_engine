@@ -8,6 +8,7 @@ from ...utils.text_util import _remove_html_tags
 class OllamaProvider(AbstractModel):
     ollama_host = None
     ollama_model = None
+    embedding_model = None
     trained_models_path = None
 
     def __init__(self, aws_s3, **setting: Dict[str, Any]) -> None:
@@ -18,22 +19,23 @@ class OllamaProvider(AbstractModel):
 
         self.ollama_host = setting["ollama_host"]
         self.ollama_model = setting["ollama_model"]
+        self.embedding_model = setting.get("EMBEDDING_MODEL", "nomic-embed-text")
 
-        model_name = setting.get("trained_model", "trained_models")
-        temp_dir = tempfile.gettempdir()
-        os.makedirs(temp_dir, exist_ok=True)
-        self.trained_models_path = os.path.join(temp_dir, "trained_models")
+        # model_name = setting.get("trained_model", "trained_models")
+        # temp_dir = tempfile.gettempdir()
+        # os.makedirs(temp_dir, exist_ok=True)
+        # self.trained_models_path = os.path.join(temp_dir, "trained_models")
 
-        if not os.path.exists(os.path.join(self.trained_models_path, "pca_embedding.pkl")):
-            key = f"{model_name}.zip"
-            temp_file = os.path.join(temp_dir, key)
+        # if not os.path.exists(os.path.join(self.trained_models_path, "pca_embedding.pkl")):
+        #     key = f"{model_name}.zip"
+        #     temp_file = os.path.join(temp_dir, key)
 
-            model_bucket = setting.get("model_bucket_name", "silvaengine-models")
-            aws_s3.download_file(model_bucket, key, temp_file)
-            # unzip
-            with zipfile.ZipFile(temp_file, 'r') as zip_ref:
-                zip_ref.extractall(temp_dir)
-        print(f"\n------------ {self.trained_models_path} ----------: {os.listdir(self.trained_models_path)} \n")
+        #     model_bucket = setting.get("model_bucket_name", "silvaengine-models")
+        #     aws_s3.download_file(model_bucket, key, temp_file)
+        #     # unzip
+        #     with zipfile.ZipFile(temp_file, 'r') as zip_ref:
+        #         zip_ref.extractall(temp_dir)
+        # print(f"\n------------ {self.trained_models_path} ----------: {os.listdir(self.trained_models_path)} \n")
 
 
     def extract_entities(self, user_prompt: str, graph_scheme, graph_scheme_attributes) -> Dict[str, Any]:
@@ -85,17 +87,17 @@ class OllamaProvider(AbstractModel):
         response = requests.post(
             self.ollama_host + "/api/embed",
             json={
-                "model": self.ollama_model,
+                "model": self.embedding_model,
                 "input": data
             }
         )
-        # print(response.status_code, response.json())
+        # print(response.status_code, len(response.json()["embeddings"][0]))
         if response.status_code == 200:
-            # original_embedding = response.json()["embeddings"][0]
-            original_embeddings = response.json()["embeddings"]
-            # load umap model and transform
-            reduced_embeddings = _tranform_embedding(original_embeddings)
-            return reduced_embeddings[0]
+            return response.json()["embeddings"][0]
+            # original_embeddings = response.json()["embeddings"]
+            # # load umap model and transform
+            # reduced_embeddings = _tranform_embedding(original_embeddings)
+            # return reduced_embeddings[0]
         else:
             print("request embedding failure:", response.text)
             return []
@@ -116,6 +118,8 @@ class OllamaProvider(AbstractModel):
     def generate_cypher_query(self, user_query: str, system_prompt, graph_schema) -> str:
         user_prompt = f"Generate a Cypher query for: {user_query} using schema: {graph_schema}"
         cypher_query = self._base_query(user_prompt, system_prompt)
+
+        print(f"______________Cypher Query_______________: {cypher_query}")
 
         # todo need debug
         return cypher_query.get("query") if  cypher_query.get("query") else ""
