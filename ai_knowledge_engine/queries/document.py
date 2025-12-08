@@ -19,4 +19,5 @@ def resolve_document(info: ResolveInfo, **kwargs: Dict[str, Any]) -> DocumentTyp
 def resolve_document_list(
     info: ResolveInfo, **kwargs: Dict[str, Any]
 ) -> DocumentListType:
+    print(f"kwargs: {kwargs}")
     return document.resolve_document_list(info, **kwargs)

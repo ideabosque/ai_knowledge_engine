@@ -64,6 +64,7 @@ def deploy() -> List:
                         },
                         {"action": "dataView", "label": "View Data View"},
                         {"action": "dataViewList", "label": "View Data View List"},
+                        {"action": "longTermMemory", "label": "View User Memory"},
                     ],
                     "mutation": [
                         {
@@ -120,6 +121,8 @@ def deploy() -> List:
                         {"action": "deleteDataView", "label": "Delete Data View"},
                         {"action": "LoadDocument", "label": "Load Document"},
                         {"action": "LoadShopifyDocument", "label": "Load Shopify Document"},
+                        {"action": "extractUserMemory", "label": "Extract User Memory"},
+                        {"action": "extractLongTermMemory", "label": "Extract Long Term Memory"},
                     ],
                     "type": "RequestResponse",
                     "support_methods": ["POST"],

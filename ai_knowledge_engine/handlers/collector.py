@@ -70,24 +70,22 @@ class S3DataProcessor:
                 try:
                     # Invoke self if the excute time is greater than 5 minutes
                     # if pendulum.now("UTC") - excute_start_time > pendulum.duration(minutes=5):
-                    if i>5:
-                        print("++++++++++++++++++++++++++invoke_self+++++++++++++++++++++++++++")
-                        self.invoke_self(
-                            info=info,
-                            document_source=document_source,
-                            endpoint_id=endpoint_id,
-                            object_key=object_key,
-                            skip_header=True,
-                            position = position,
-                            embedding_attributes= embedding_attributes,
-                            graph_scheme_attributes = graph_scheme_attributes,
-                            vector_scheme_attributes = vector_scheme_attributes,
-                            max_retries = max_retries,
-                            editor = editor,
-                            chunk_size_for_unstructured = chunk_size_for_unstructured,
-                            document_external_id = document_external_id,
-                        )
-                        return
+                    #     self.invoke_self(
+                    #         info=info,
+                    #         document_source=document_source,
+                    #         endpoint_id=endpoint_id,
+                    #         object_key=object_key,
+                    #         skip_header=True,
+                    #         position = position,
+                    #         embedding_attributes= embedding_attributes,
+                    #         graph_scheme_attributes = graph_scheme_attributes,
+                    #         vector_scheme_attributes = vector_scheme_attributes,
+                    #         max_retries = max_retries,
+                    #         editor = editor,
+                    #         chunk_size_for_unstructured = chunk_size_for_unstructured,
+                    #         document_external_id = document_external_id,
+                    #     )
+                    #     return
 
                     position += len(line) # Locates the location of the currently processed file and continues from this location only if an error occurs in file reading
 

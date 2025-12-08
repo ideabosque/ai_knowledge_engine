@@ -263,9 +263,12 @@ ON MATCH SET n += node
             }
 
             if type(self.vector_scheme_attributes) is dict and len(self.vector_scheme_attributes) > 0:
+                if obj.get('properties') and type(obj['properties']) is dict:
+                        obj.update(obj.get('properties'))
                 for k,v in self.vector_scheme_attributes.items():
-                    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>",obj.get(k, ""), obj.get(v, ""))
-                    document[v] = obj.get(k, "") if k in obj else obj.get(v, "")
+                    # print(">>>>>>>>>>>>>>>>>>>>>>>>>>>",obj.get(k, ""), obj.get(v, ""))
+                    document[v] = (obj.get(k) if obj.get(k)
+                                   else (obj.get(v) if obj.get(v) else ""))
 
             print(f"\n\n=================== Save vector document successful: {documentId}")
             print(self._generate_vector_database_index_name())
