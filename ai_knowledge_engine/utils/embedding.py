@@ -1,0 +1,40 @@
+# import numpy as np
+import pickle
+
+def _load_trained_model(file: str, model_path: str = None):
+    """load pre trained model"""
+    import os, tempfile
+    if model_path is None:
+        model_path = os.path.join(tempfile.gettempdir(), "trained_models")
+    os.makedirs(model_path, exist_ok=True)
+
+    path = os.path.join(model_path, file)
+    with open(path, 'rb') as f:
+        model = pickle.load(f)
+    return model
+
+
+def _get_dimension(arr):
+    if not isinstance(arr, (list, tuple)):
+        return 0
+    if not arr:  # 空列表
+        return 1
+    return 1 + _get_dimension(arr[0])
+
+def _tranform_embedding(embeddings):
+    scaler = _load_trained_model("scaler_embedding.pkl")
+    pca = _load_trained_model("pca_embedding.pkl")
+    umap_reducer = _load_trained_model("umap_reducer_embedding.pkl")
+
+    # embeddings = np.array(embeddings)
+    # must be 2darray
+    # if embeddings.ndim == 1:
+    #     embeddings = embeddings.reshape(1, -1)
+    if _get_dimension(embeddings) == 1:
+        embeddings = [embeddings]
+
+    embedding_scaled = scaler.transform(embeddings)
+    embedding_pca = pca.transform(embedding_scaled)
+    embedding_reduced = umap_reducer.transform(embedding_pca)
+
+    return embedding_reduced.tolist()

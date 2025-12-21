@@ -16,6 +16,6 @@ class ProxyLargeModel(object):
         # elif process_model == "spacy":
         #     self.provider = SpacyProvider(aws_s3_client, **setting)
         elif process_model == "ollama":
-            self.provider = OllamaProvider(**setting)
+            self.provider = OllamaProvider(aws_s3_client, **setting)
         else:
             raise Exception("Invalid provider")

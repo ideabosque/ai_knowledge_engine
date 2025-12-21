@@ -26,6 +26,7 @@ from .mutations.document_process_entity import InsertUpdateDocumentProcessEntity
 from .mutations.document_process_task import InsertUpdateDocumentProcessTask, DeleteDocumentProcessTask
 from .mutations.knowledge_graph_metadata import InsertUpdateKnowledgeGraphMetadata, DeleteKnowledgeGraphMetadata
 from .mutations.request import InsertUpdateRequest, DeleteRequest, LoadDocument, LoadShopifyDocument
+from .mutations.user_memory import ExtractUserMemory, ExtractLongTermMemory
 
 from .queries.data_source import resolve_data_source, resolve_data_source_list
 from .queries.data_view import resolve_data_view
@@ -35,6 +36,8 @@ from .queries.document_process_task import resolve_document_process_task, resolv
 from .queries.knowledge_graph_metadata import resolve_knowledge_graph_metadata, resolve_knowledge_graph_metadata_list
 from .queries.request import resolve_request, resolve_request_list
 from .queries.knowledge_rag import resolve_knowledge_rag
+from .queries.user_memory import resolve_long_term_memory
+
 
 from .types.data_source import DataSourceType, DataSourceListType
 from .types.document import DocumentType, DocumentListType
@@ -44,6 +47,8 @@ from .types.knowledge_graph_metadata import KnowledgeGraphMetadataType, Knowledg
 from .types.knowledge_rag import KnowledgeRagType
 from .types.request import RequestType, RequestListType
 from .types.data_view import DataViewType
+from .types.long_term_memory import LongTermMemoryType
+
 
 
 def type_class():
@@ -180,6 +185,13 @@ class Query(ObjectType):
         parameters=JSON(required=False),
     )
 
+    long_term_memory = Field(
+        LongTermMemoryType,
+        user_id=String(required=True),
+        user_query=String(required=False),
+        query_context=JSON(required=False),
+    )
+
     def resolve_ping(self, info: ResolveInfo) -> str:
         return f"Hello at {time.strftime('%X')}!!"
 
@@ -253,6 +265,11 @@ class Query(ObjectType):
     ) -> DataViewType:
         return resolve_data_view(info, **kwargs)
 
+    def resolve_long_term_memory(
+        self, info: ResolveInfo, **kwargs: Dict[str, Any]
+    ) -> LongTermMemoryType:
+        return resolve_long_term_memory(info, **kwargs)
+
 
 class Mutations(ObjectType):
     insert_update_document = InsertUpdateDocument.Field()
@@ -269,3 +286,5 @@ class Mutations(ObjectType):
     delete_request = DeleteRequest.Field()
     load_document = LoadDocument.Field()
     load_shopify_document = LoadShopifyDocument.Field()
+    extract_user_memory = ExtractUserMemory.Field()
+    extract_long_term_memory = ExtractLongTermMemory.Field()

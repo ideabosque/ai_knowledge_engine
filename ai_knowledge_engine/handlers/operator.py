@@ -3,6 +3,7 @@ import json, pendulum, uuid, time
 from typing import Any, Dict, List
 from .config import Config
 from ..models.document import DocumentModel
+from ..models.document_process_error import DocumentProcessErrorModel
 
 class Operator:
     def __init__(
@@ -40,6 +41,8 @@ class Operator:
                 if "type" in entity:
                     node_type = entity['type']
                     properties = []
+                    if entity.get('properties') and type(entity['properties']) is dict:
+                        entity.update(entity.get('properties'))
 
                     for key, value in entity.items():
                         if key == 'type':
@@ -65,7 +68,54 @@ class Operator:
         except Exception as e:
             print(f"Error: {e}")
             raise e
-        
+
+    def _generate_cypher_upsert_statments(self, data: Dict[str, Any]) -> list:
+        """
+        Generate Cypher statements for the given data.
+        """
+        try:
+            type_datas = {}
+            for entity in data.get('entities', []):
+                if "type" in entity:
+                    node_type = entity['type']
+                    properties = {}
+                    if entity.get('properties') and type(entity['properties']) is dict:
+                        entity.update(entity.get('properties'))
+
+                    for key, value in entity.items():
+                        if key == 'type':
+                            continue
+                        elif key.lower() in self.graph_attributes:
+                            properties[key] = value.replace("'", "\\'") if isinstance(value, str) else value
+
+                    if len(properties) > 0:
+                        if node_type not in type_datas:
+                            type_datas[node_type] = []
+                        type_datas[node_type].append(properties)
+
+            for relation in data.get('relations', []):
+                print(f">>>>>>>>>>>>> relation:{relation}\n")
+
+            if len(type_datas) > 0:
+                cypher_statements = []
+                for node_type, node_data in type_datas.items():
+                    query = """
+UNWIND $nodes AS node 
+MERGE (n:%s {name: node.name}) 
+ON CREATE SET n = node 
+ON MATCH SET n += node
+""" % (node_type)
+                    cypher_statements.append({
+                        "query": query,
+                        "nodes": node_data
+                    })
+                return cypher_statements
+
+            return None
+        except Exception as e:
+            print(f"Error: {e}")
+            raise e
+
     def _create_vector_database_index(self):
         """
         Create vector database index
@@ -104,7 +154,7 @@ class Operator:
             data = []
 
             for key in self.embedding_attributes:
-                if key in obj:
+                if key in obj and obj[key]:
                     data.append(obj[key])
 
             if len(data) < 1:
@@ -112,14 +162,6 @@ class Operator:
 
             return Config.proxy_large_model.provider.get_embeddings(json.dumps(data))
 
-            if not Config.process_model and str(Config.process_model).strip().lower() == "openai":
-                embeddings = Config.openai_client.embeddings.create(
-                    input=json.dumps(data), model=Config.embedding_model
-                )
-                return embeddings.data[0].embedding
-            else:
-                embeddings = Config.spacy_nlp(json.dumps(data)).vector
-                return embeddings
         except Exception as e:
             print(e)
             return None
@@ -152,7 +194,7 @@ class Operator:
                     document_title=f"{document_title} ",
                     document_content=raw,
                     chunk_index=chunk_index,
-                    title_embedding=embeddings,
+                    title_embedding=[],
                     content_embedding=embeddings,
                     created_at=now,
                     updated_at=now,
@@ -166,6 +208,49 @@ class Operator:
                 print(f"Error: {e}")
                 print(f"Retrying... Attempt {retry_count}")
                 time.sleep(2 ** retry_count)
+
+    def save_document_process_error(
+            self, 
+            raw:str, 
+            process_error_uuid: str,
+            document_external_id: str,
+            document_title:str,
+            chunk_index:int = 0,
+            error_message:str = "",
+            editor:str = "",
+            max_retries: int = 3,
+        ):
+        """
+        Save document chunk to dynamodb
+        """
+        retry_count = 0
+
+        while retry_count < max_retries:
+            try:
+                now = pendulum.now("UTC")
+                DocumentProcessErrorModel(
+                    document_source=self.document_source,
+                    process_error_uuid=f"{process_error_uuid}",
+                    document_external_id=f"{document_external_id}",
+                    endpoint_id=self.endpoint_id,
+                    document_title=f"{document_title}",
+                    document_content=raw,
+                    chunk_index=chunk_index,
+                    error_message=error_message,
+                    process_status="new",
+                    process_count=0,
+                    created_at=now,
+                    updated_at=now,
+                    updated_by=editor,
+                ).save()
+
+                print(f"\n\n=================== Save DocumentProcessError to dynamodb successful: {process_error_uuid}")
+                break
+            except Exception as e:
+                retry_count += 1
+                print(f"Error: {e}")
+                time.sleep(2 ** retry_count)
+
     def save_vector_document(self, obj: Dict[str, Any], documentId: str, embedding: Any):
         """
         Save vector document to vector database
@@ -178,9 +263,12 @@ class Operator:
             }
 
             if type(self.vector_scheme_attributes) is dict and len(self.vector_scheme_attributes) > 0:
+                if obj.get('properties') and type(obj['properties']) is dict:
+                        obj.update(obj.get('properties'))
                 for k,v in self.vector_scheme_attributes.items():
-                    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>",obj.get(k, ""))
-                    document[v] = obj.get(k, "")
+                    # print(">>>>>>>>>>>>>>>>>>>>>>>>>>>",obj.get(k, ""), obj.get(v, ""))
+                    document[v] = (obj.get(k) if obj.get(k)
+                                   else (obj.get(v) if obj.get(v) else ""))
 
             print(f"\n\n=================== Save vector document successful: {documentId}")
             print(self._generate_vector_database_index_name())
@@ -194,6 +282,7 @@ class Operator:
         except Exception as e:
             print(e)
             raise e
+
     def save_graph_document(self, entities:Dict[str, Any]):
         """
         Extract entities from the given object and save them to the graph database.
@@ -207,17 +296,26 @@ class Operator:
             
             print(f"\n>>>>>>>>>> 2. Extracted Entities Verify: {entities}")
             
-            cypher_query = self._generate_cypher_statments(entities)
+            # cypher_query = self._generate_cypher_statments(entities)
 
-            print(f"\n>>>>>>>>>> 2. Generated Cypher Statment: {cypher_query}")
+            # print(f"\n>>>>>>>>>> 2. Generated Cypher Statment: {cypher_query}")
 
-            if type(cypher_query) is str and len(cypher_query) > 0:
-                print(f"\n>>>>>>>>>> 4. Excute Cypher Query: {cypher_query}\n\n")
-                with Config.graph_db_connector.driver.session(
-                    database=Config.graph_db_connector.database
-                ) as session:
-                    session.run(cypher_query)
-                # session.close()
-                print("\n=================== Save graph document successful")
+            # if type(cypher_query) is str and len(cypher_query) > 0:
+            #     print(f"\n>>>>>>>>>> 4. Excute Cypher Query: {cypher_query}\n\n")
+            #     with Config.graph_db_connector.driver.session(
+            #         database=Config.graph_db_connector.database
+            #     ) as session:
+            #         session.run(cypher_query)
+            #     # session.close()
+            #     print("\n=================== Save graph document successful")
+            cypher_query_list = self._generate_cypher_upsert_statments(entities)
+            print(f"\n --------- Cypher query list --------: {cypher_query_list}")
+            if cypher_query_list:
+                for cypher_query in cypher_query_list:
+                    with Config.graph_db_connector.driver.session(
+                        database=Config.graph_db_connector.database
+                    ) as session:
+                        session.run(cypher_query.get('query'), nodes = cypher_query.get('nodes'))
+
         except Exception as e:
             raise e

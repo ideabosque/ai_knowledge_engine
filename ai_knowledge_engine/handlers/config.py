@@ -1,6 +1,6 @@
-import boto3, logging, sys, os, traceback, zipfile, tempfile
+import boto3, logging, sys, os, traceback, zipfile, tempfile, atexit
 from typing import Dict, List, Any, Optional, Callable
-from silvaengine_utility import Utility
+from silvaengine_utility import Utility, Serializer
 from ..providers.proxy_large_model import ProxyLargeModel
 from ..models import utils
 
@@ -52,6 +52,9 @@ class Config:
         except Exception as e:
             logger.exception("Failed to initialize configuration.")
             raise e
+        finally:
+            atexit.register(cls._cleanup)
+            logger.info("Cleanup registered to atexit.")
 
 
     @classmethod
@@ -232,7 +235,7 @@ class Config:
 
             return _class(
                 logger,
-                **Utility.json_loads(Utility.json_dumps(setting)),
+                **Serializer.json_normalize(setting),
             )
         except Exception as e:
             log = traceback.format_exc()
@@ -265,3 +268,13 @@ class Config:
         with zipfile.ZipFile(zip_path, "r") as zip_ref:
             zip_ref.extractall(cls.module_extract_path)
         logger.info(f"Extracted module to {cls.module_extract_path}")
+
+
+    @classmethod
+    def _cleanup(cls):
+        if hasattr(cls, 'graph_db_connector') and cls.graph_db_connector is not None:
+            cls.graph_db_connector.close()
+            print("Neo4j driver closed.")
+        if hasattr(cls, 'vector_db_connector') and cls.vector_db_connector is not None:
+            cls.vector_db_connector.redis_client.close()
+            print("Redis connector closed.")

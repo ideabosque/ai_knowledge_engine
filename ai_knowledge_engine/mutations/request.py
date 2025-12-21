@@ -80,6 +80,7 @@ class LoadDocument(Mutation):
     @staticmethod
     def mutate(root: Any, info: Any, **kwargs: Dict[str, Any]) -> "InsertUpdateRequest":
         try:
+            print(kwargs)
             S3DataProcessor(setting=info.context.get("setting", {})).process_file(info=info, **kwargs)
         except Exception as e:
             log = traceback.format_exc()

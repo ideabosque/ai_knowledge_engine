@@ -1,13 +1,20 @@
-import json, re, requests
+import json, re, requests, tempfile, os, zipfile
 from typing import Any, Dict
 from .abstract_model import AbstractModel
+from ...utils.embedding import _tranform_embedding
+from ...utils.text_util import _remove_html_tags
 
 
 class OllamaProvider(AbstractModel):
     ollama_host = None
     ollama_model = None
+    embedding_model = None
+    trained_models_path = None
+    api_key = None
+    headers = None
 
-    def __init__(self, **setting: Dict[str, Any]) -> None:
+
+    def __init__(self, aws_s3, **setting: Dict[str, Any]) -> None:
         if "ollama_host" not in setting:
             raise Exception("ollama_host is required")
         if "ollama_model" not in setting:
@@ -15,6 +22,29 @@ class OllamaProvider(AbstractModel):
 
         self.ollama_host = setting["ollama_host"]
         self.ollama_model = setting["ollama_model"]
+        self.embedding_model = setting.get("EMBEDDING_MODEL", "nomic-embed-text")
+        if setting.get("ollama_api_key"):
+            self.api_key = setting["ollama_api_key"]
+            self.headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.api_key}"
+            }
+
+        # model_name = setting.get("trained_model", "trained_models")
+        # temp_dir = tempfile.gettempdir()
+        # os.makedirs(temp_dir, exist_ok=True)
+        # self.trained_models_path = os.path.join(temp_dir, "trained_models")
+
+        # if not os.path.exists(os.path.join(self.trained_models_path, "pca_embedding.pkl")):
+        #     key = f"{model_name}.zip"
+        #     temp_file = os.path.join(temp_dir, key)
+
+        #     model_bucket = setting.get("model_bucket_name", "silvaengine-models")
+        #     aws_s3.download_file(model_bucket, key, temp_file)
+        #     # unzip
+        #     with zipfile.ZipFile(temp_file, 'r') as zip_ref:
+        #         zip_ref.extractall(temp_dir)
+        # print(f"\n------------ {self.trained_models_path} ----------: {os.listdir(self.trained_models_path)} \n")
 
 
     def extract_entities(self, user_prompt: str, graph_scheme, graph_scheme_attributes) -> Dict[str, Any]:
@@ -40,8 +70,8 @@ class OllamaProvider(AbstractModel):
         ...
     ]
 }}"""
-
-        response = self._base_query(user_prompt, system_prompt)
+        user_prompt = _remove_html_tags(user_prompt)
+        response = self.base_query(user_prompt, system_prompt, format="json")
         entities = []
         if "entities" in response:
             for entity in response["entities"]:
@@ -55,9 +85,37 @@ class OllamaProvider(AbstractModel):
         }
 
 
+    def base_query(self, user_input: str, system_prompt: str, format: str = "") -> Any:
+        response = requests.post(
+            self.ollama_host + "/api/chat",
+            headers=self.headers,
+            json={
+                "model": self.ollama_model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_input}
+                ],
+                "stream": False,
+                "format": format,
+                # "options": {
+                #     "temperature": 0.7,
+                #     "num_ctx": 2048
+                # }
+            }
+        )
+        # print(f"\n---------------ollam-response: ------\n {response}")
+        if response.status_code == 200:
+            content = response.json()["message"]["content"]
+            print(f"\n---------------ollam-response-content: ------\n {content}")
+            result = json.loads(content) if format == "json" and isinstance(content, str) else content
+            return result
+        else:
+            raise Exception("request failure: " + response.text)
+
+
     def tokenize_text(self, text: str) -> Dict[str, Any]:
         prompt = f"Please tokenize the user-submitted text and return it strictly as a JSON array. "
-        response = self._base_query(self._clean_data(text), prompt)
+        response = self.base_query(self._clean_data(text), prompt, format="json")
 
         return response.get("tokens", [])
 
@@ -66,13 +124,17 @@ class OllamaProvider(AbstractModel):
         response = requests.post(
             self.ollama_host + "/api/embed",
             json={
-                "model": self.ollama_model,
+                "model": self.embedding_model,
                 "input": data
             }
         )
-        # print(response.status_code, response.json())
+        # print(response.status_code, len(response.json()["embeddings"][0]))
         if response.status_code == 200:
             return response.json()["embeddings"][0]
+            # original_embeddings = response.json()["embeddings"]
+            # # load umap model and transform
+            # reduced_embeddings = _tranform_embedding(original_embeddings)
+            # return reduced_embeddings[0]
         else:
             print("request embedding failure:", response.text)
             return []
@@ -81,7 +143,7 @@ class OllamaProvider(AbstractModel):
     def is_similarity_search(self, user_query: str, system_prompt: str, graph_schema) -> bool:
         """Check if the user query indicates a similarity search."""
         user_prompt = f"Is this query ({user_query}) a similarity search based on schema: ({graph_schema})?"
-        response = self._base_query(user_prompt, system_prompt)
+        response = self.base_query(user_prompt, system_prompt)
 
         if response and isinstance(response, dict):
             # dict key is not fixed
@@ -92,7 +154,10 @@ class OllamaProvider(AbstractModel):
 
     def generate_cypher_query(self, user_query: str, system_prompt, graph_schema) -> str:
         user_prompt = f"Generate a Cypher query for: {user_query} using schema: {graph_schema}"
-        cypher_query = self._base_query(user_prompt, system_prompt)
+        print(f"______________user_prompt_______________: {user_prompt}")
+        cypher_query = self.base_query(user_prompt, system_prompt)
+
+        print(f"______________Cypher Query_______________: {cypher_query}")
 
         # todo need debug
         return cypher_query.get("query") if  cypher_query.get("query") else ""
@@ -101,32 +166,6 @@ class OllamaProvider(AbstractModel):
     """
     ############## private methods ##############
     """
-    def _base_query(self, user_input, system_prompt):
-        response = requests.post(
-            self.ollama_host + "/api/chat",
-            json={
-                "model": self.ollama_model,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_input}
-                ],
-                "stream": False,
-                "format": "json",
-                # "options": {
-                #     "temperature": 0.7,
-                #     "num_ctx": 2048
-                # }
-            }
-        )
-        if response.status_code == 200:
-            # llama3.1
-            json_str = response.json()["message"]["content"]
-            json_result = json.loads(json_str)
-            return json_result
-        else:
-            raise("request failure: " + response.text)
-
-
     def _clean_data(self, text: str) -> str:
         """
         Data cleaning to remove noisy information

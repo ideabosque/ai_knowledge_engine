@@ -4,6 +4,7 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
+from enum import nonmember
 import json
 import logging
 import os
@@ -219,7 +220,9 @@ Please the return the extracted data in the following format:
 """,
     },
     "endpoint_id": os.getenv("ENDPOINT_ID"),
+    "part_id": os.getenv("PART_ID"),
     "test_mode": os.getenv("TEST_MODE"),
+    "execute_mode": os.getenv("EXECUTE_MODE"),
     "swap_bucket_name": os.getenv("SWAP_BUCKET_NAME"),
     "process_model": os.getenv("PROCESS_MODEL"),
     "spacy_model": os.getenv("SPACY_MODEL"),
@@ -252,11 +255,12 @@ Please the return the extracted data in the following format:
     "private_app_password": os.getenv("PRIVATE_APP_PASSWORD"),
     "ollama_host": os.getenv("OLLAMA_HOST"),
     "ollama_model": os.getenv("OLLAMA_MODEL"),
+    "ollama_api_key": os.getenv("OLLAMA_API_KEY"),
 }
 
-sys.path.insert(0, f"{os.getenv('BASE_DIR')}/ai_knowledge_engine")
+sys.path.insert(0, "/var/www/projects/ideabosque/silvaengine_utility")
+sys.path.insert(2, f"{os.getenv('BASE_DIR')}/ai_knowledge_engine")
 sys.path.insert(1, f"{os.getenv('BASE_DIR')}/silvaengine_dynamodb_base")
-sys.path.insert(2, f"{os.getenv('BASE_DIR')}/silvaengine_utility")
 sys.path.insert(3, f"{os.getenv('BASE_DIR')}/neo4j_graph_connector")
 sys.path.insert(4, f"{os.getenv('BASE_DIR')}/redis_stack_connector")
 sys.path.insert(5, f"{os.getenv('BASE_DIR')}/silvaengine_base")
@@ -265,23 +269,25 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger()
 
 from ai_knowledge_engine import AIKnowledgeEngine
-from silvaengine_utility import Utility
+from silvaengine_utility import Utility, Graphql
 
 
 class AIKnowledgeEngineTest(unittest.TestCase):
     def setUp(self):
+        context = {
+            "logger": logger,
+            "endpoint_id": setting.get("endpoint_id"),
+            "part_id": setting.get("part_id"),
+            "setting": setting,
+        }
         self.ai_knowledge_engine = AIKnowledgeEngine(logger, **setting)
-        endpoint_id = setting.get("endpoint_id")
-        test_mode = setting.get("test_mode")
-        self.schema = Utility.fetch_graphql_schema(
-            logger,
-            endpoint_id,
+        self.schema = Graphql.fetch_graphql_schema(
+            context,
             "ai_knowledge_graphql",
-            setting=setting,
-            test_mode=test_mode,
+            aws_lambda=None
         )
         # print(setting)
-        # print(self.schema)
+        print(self.schema)
         logger.info("Initiate AIKnowledgeEngineTest ...")
 
     def tearDown(self):
@@ -693,22 +699,29 @@ class AIKnowledgeEngineTest(unittest.TestCase):
     @unittest.skip("demonstrating skipping")
     def test_graphql_knowledge_rag(self):
         query = Utility.generate_graphql_operation("knowledgeRag", "Query", self.schema)
-        logger.info(f"Query: {query}")
+        # logger.info(f"Query: {query}")
+        # print('-------')
+        # return
         payload = {
             "query": query,
             "variables": {
                 # "userQuery": """Which product has the highest discounted price in the "High" price range?""",
                 # "userQuery": """Find products with the same price range and rating group as "Daikin 1.5 Ton 5 Star Inverter Split AC (Copper, PM 2.5 Filter, 2022 Model, MTKM50U, White)".""",
                 # "userQuery": """Recommend products similar to "Daikin 1.5 Ton 5 Star Inverter Split AC (Copper, PM 2.5 Filter, 2022 Model, MTKM50U, White)".""",
-                "userQuery": """Get all lost opportunities with account detail handled by Moses Frase.""",
+                # "userQuery": """Get all lost opportunities with account detail handled by Moses Frase.""",
                 # "userQuery": """Find companies relate to 'GTX Plus Basic'.""",
                 # "userQuery": "Can you find products related to carpet cleaning?",
                 # "userQuery": "products related to carpet cleaning",
                 # "documentSource": "company_data",
                 "documentSource": "product",
                 # "isSimilaritySearch": True,
-                "userQuery": """Find product relate to 'Hawk A1410SKIRTASSY Tigerhawk 1410 dust skirt'.""",
-                # "isSimilaritySearch": False,
+                # "userQuery": """Find product relate to 'Hawk A1410SKIRTASSY Tigerhawk 1410 dust skirt'.""",
+                # "userQuery": """Find product relate to 'Betco E2210000 Squeegee Blade Front Red Linatex'.""",
+                # "userQuery": """Betco E2210000 Squeegee Blade Front Red Linatex""",
+                "userQuery": """Find product relate to 'Hawk HP0005-BLACK power lock kit for Brute, locks the handle in the up position'.""",
+                # "userQuery": """NaceCare NQ100""",
+                "isSimilaritySearch": False,
+                "limit": 10
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -735,7 +748,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
         logger.info(response)
 
-    # @unittest.skip("demonstrating skipping")
+    @unittest.skip("demonstrating skipping")
     def test_load_document(self):
         try:
             payload = {
@@ -772,8 +785,10 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                     "documentSource": "product",
                     "endpointId": "cleaning-stuff",
                     # "objectKey": "companies/cleaning-stuff-products.csv",
-                    "objectKey": "cleaning-stuff-products-test.csv",
+                    "objectKey": "amazon-products-2w.csv",
                     "skipHeader": True,
+                    # "objectKey": "cleaning-stuff-products-test.txt",
+                    # "skipHeader": False,
                     "embeddingAttributes": [
                         "product_name",
                         "meta_keywords",
@@ -786,11 +801,32 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                         "product_name": "name",
                         "meta_keywords": "keywords",
                         "meta_description": "description",
-                        "price": "price",
+                        "actual_price/price": "price",
                         "brand_name": "brand",
                         "product_code/sku": "sku",
+                        "main_category": "main_category",
+                        "sub_category": "sub_category",
+                        "image": "image",
+                        "link": "link",
+                        "ratings": "ratings",
+                        "no_of_ratings": "no_of_ratings",
+                        "discount_price": "discount_price",
                     },
-                    "vectorSchemeAttributes": {"product_name": "name"},
+                    "vectorSchemeAttributes": {
+                        "product_name": "name",
+                        "meta_keywords": "keywords",
+                        "meta_description": "description",
+                        "actual_price/price": "price",
+                        "brand_name": "brand",
+                        "product_code/sku": "sku",
+                        "main_category": "main_category",
+                        "sub_category": "sub_category",
+                        "image": "image",
+                        "link": "link",
+                        "ratings": "ratings",
+                        "no_of_ratings": "no_of_ratings",
+                        "discount_price": "discount_price",
+                    },
                 },
             }
             response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
@@ -846,7 +882,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                         "meta_description": "description",
                         "price": "price",
                         "brand_name": "brand",
-                        "product_code/sku": "sku",
+                        "product_code/sku": "sku"
                     },
                     "vectorSchemeAttributes": {"product_name": "name"},
                     "filters": {
@@ -858,6 +894,140 @@ class AIKnowledgeEngineTest(unittest.TestCase):
             logger.info(response)
         except Exception as e:
             print(f"Error reading file: {e}")
+
+
+    @unittest.skip("demonstrating skipping")
+    def test_extract_user_memory(self):
+        payload = {
+            "query": """mutation extractUserMemory (
+                $userId: String!
+                $userQuery: String
+                $episodes: [JSON]
+            ) {
+                extractUserMemory (
+                    userId: $userId
+                    userQuery: $userQuery
+                    episodes: $episodes
+                ) {
+                    ok
+                    userId
+                    edges
+                    preferences
+                }
+            }""",
+            "variables": {
+                "userId": "user_000002",
+                "userQuery": "",
+                "episodes": [
+                    {
+                        "message_uuid": "msg_00211",
+                        "timestamp": "2024-01-15T10:30:00Z",
+                        "message": "Please help me recommend some products related to battery production",
+                        "role": "user",
+                        "source": "conversation",
+                        "message_time": "2025-11-13T14:35:28.613278+0000",
+                    },
+                    # {
+                    #     "message_uuid": "msg_0022",
+                    #     "timestamp": "2024-01-15T10:30:00Z",
+                    #     "message": "Hello",
+                    #     "role": "user",
+                    #     "source": "conversation",
+                    #     "message_time": "2025-11-14T14:35:28.613278+0000",
+                    # },
+#                     {
+#                         "message_uuid": "msg_002",
+#                         "message_time": "2024-01-15T10:30:00Z",
+#                         "message": """Battery production-related products cover a wide range, including battery cells, battery production equipment, and battery raw materials. Here are some recommended products:
+# Battery Cells
+# High-rate Lithium Iron Phosphate Battery Cells: Grepow's high-rate lithium iron phosphate battery cells have higher charging and discharging speeds compared to ordinary iron-lithium batteries. They use an innovative chemical formula to provide safe and stable discharging performance, with a cycle life of up to 2000 times and can work normally in a high-temperature environment of 60°C.
+# Ultra-thin Lithium-ion Battery Cells: Grepow can provide ultra-thin rechargeable lithium-ion batteries with a thickness ranging from 0.5mm to 0.85mm. These batteries are green and environmentally friendly, with low self-discharge, and will not catch fire or explode under conditions such as over-discharge, short-circuit, thermal shock, and heavy object impact.
+# Wide-temperature Lithium Battery Cells: Tianqin Lithium's TK 18650 12.8V 12Ah lithium iron phosphate wide-temperature battery pack can operate at a low temperature of -40°C and a high temperature of 80°C, which is suitable for applications that require working in extreme temperature environments.""",
+#                         "role": "assistant",
+#                         "source": "conversation",
+#                     },
+                    # {
+                    #     "message_uuid": "msg_003",
+                    #     "timestamp": "2024-01-15T10:30:00Z",
+                    #     "message": "Please help me recommend some factories related to High-rate Lithium Iron Phosphate Battery Cells",
+                    #     "role": "user",
+                    #     "source": "conversation",
+                    #     "message_time": "2024-01-15T10:30:00Z",
+                    # },
+                    # {
+                    #     "uuid": "episode_movie_tickets_002",
+                    #     "timestamp": "2024-01-15T10:30:00Z",
+                    #     "user_message": "哪里可以买票",
+                    #     "ai_response": "淘票票、猫眼、微影时代",
+                    #     "source": "conversation",
+                    #     "source_description": "用户与AI的对话"
+                    # },
+                    # {
+                    #     "uuid": "episode_movie_tickets_003",
+                    #     "timestamp": "2024-01-15T10:30:00Z",
+                    #     "action": "用户点击微影时代网站",
+                    #     "source": "action",
+                    #     "source_description": "用户点击"
+                    # }
+                ]
+            },
+        }
+        response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
+        logger.info(response)
+
+
+    @unittest.skip("demonstrating skipping")
+    def test_extract_long_term_memory(self):
+        payload = {
+            "query": """mutation extractLongTermMemory (
+                $userIds: [String]!
+                $intervalMinutes: Int
+            ) {
+                extractLongTermMemory (
+                    userIds: $userIds
+                    intervalMinutes: $intervalMinutes
+                ) {
+                    ok
+                }
+            }""",
+            "variables": {
+                "userIds": ["user_000003"],
+                "intervalMinutes": 60*24*30,
+            },
+        }
+        response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
+        logger.info(response)
+
+
+    # @unittest.skip("demonstrating skipping")
+    def test_long_term_memory(self):
+        print(f"------------schema----------:\n{self.schema}\n")
+        query = Graphql.generate_graphql_operation("longTermMemory", "Query", self.schema)
+        print(f"longTermMemory query:\n{query}\n")
+        payload = {
+            "query": """query longTermMemory (
+                $userId: String!
+                $userQuery: String
+                $queryContext: JSON
+            ) {
+                longTermMemory (
+                    userId: $userId
+                    userQuery: $userQuery
+                    queryContext: $queryContext
+                ) {
+                    userUuid,
+                    profile,
+                    interests,
+                    preferences
+                }
+            }""",
+            "variables": {
+                "userId": "user_000003"
+            },
+        }
+        response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
+        logger.info(response)
+
 
 
 if __name__ == "__main__":

@@ -25,6 +25,7 @@ def _initialize_tables(logger: logging.Logger) -> None:
     from .document import DocumentModel
     from .knowledge_graph_metadata import KnowledgeGraphMetadataModel
     from .request import RequestModel
+    from .document_process_error import DocumentProcessErrorModel
 
     _create_table(DataSourceModel, logger)
     _create_table(DocumentProcessEntityModel, logger)
@@ -32,6 +33,7 @@ def _initialize_tables(logger: logging.Logger) -> None:
     _create_table(DocumentModel, logger)
     _create_table(KnowledgeGraphMetadataModel, logger)
     _create_table(RequestModel, logger)
+    _create_table(DocumentProcessErrorModel, logger)
 
 
 def _get_data_source(endpoint_id: str, data_source_name: str) -> Dict[str, Any]:

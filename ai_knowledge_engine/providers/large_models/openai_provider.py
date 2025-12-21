@@ -49,12 +49,25 @@ class OpenaiProvider(AbstractModel):
     ]
 }}"""
 
-        return json.loads(self._base_query(user_prompt, system_prompt))
+        return self.base_query(user_prompt, system_prompt, format="json")
+
+
+    def base_query(self, user_input, system_prompt, format: str = "") -> Any:
+        response = self.openai_client.chat.completions.create(
+            model=self.openai_model,
+            messages=[
+                {"role": "system", "content":system_prompt},
+                {"role": "user", "content": user_input}
+            ]
+        )
+        content = response.choices[0].message.content
+        result = json.loads(content) if format == "json" and isinstance(content, str) else content
+        return result
 
 
     def tokenize_text(self, text: str) -> Dict[str, Any]:
         prompt = f"Please tokenize the user-submitted text and return it strictly as a JSON array. "
-        return json.loads(self._base_query(self._clean_data(text), prompt))
+        return json.loads(self.base_query(self._clean_data(text), prompt))
 
 
     def get_embeddings(self, data) -> Any:
@@ -67,7 +80,7 @@ class OpenaiProvider(AbstractModel):
     def is_similarity_search(self, user_query: str, system_prompt: str, graph_schema) -> bool:
         """Check if the user query indicates a similarity search."""
         user_prompt = f"Is this query ({user_query}) a similarity search based on schema: ({graph_schema})?"
-        is_similarity_search = self._base_query(user_prompt, system_prompt)
+        is_similarity_search = self.base_query(user_prompt, system_prompt)
         if is_similarity_search.startswith(
             "The query is ambiguous and does not provide enough information to determine if it pertains to a similarity search. Please provide additional context or clarify your intent."
         ):
@@ -80,7 +93,7 @@ class OpenaiProvider(AbstractModel):
 
     def generate_cypher_query(self, user_query: str, system_prompt, graph_schema) -> str:
         user_prompt = f"Generate a Cypher query for: {user_query} using schema: {graph_schema}"
-        cypher_query = self._base_query(user_prompt, system_prompt)
+        cypher_query = self.base_query(user_prompt, system_prompt)
 
         if cypher_query.startswith("Unable to retrieve the graph schema."):
             raise SchemaRetrievalError(cypher_query)
@@ -94,16 +107,6 @@ class OpenaiProvider(AbstractModel):
     """
     ############## private methods ##############
     """
-    def _base_query(self, user_input, system_prompt):
-        response = self.openai_client.chat.completions.create(
-            model=self.openai_model,
-            messages=[
-                {"role": "system", "content":system_prompt},
-                {"role": "user", "content": user_input}
-            ]
-        )
-        return response.choices[0].message.content
-
 
     def _clean_data(self, text: str) -> str:
         """

@@ -6,6 +6,10 @@ class AbstractModel(object):
         raise NotImplementedError("Subclasses must implement this method")
 
 
+    def base_query(self, user_prompt: str, system_prompt: str, format: str = "") -> Any:
+        raise NotImplementedError("Subclasses must implement this method")
+
+
     def tokenize_text(self, text: str) -> Dict[str, Any]:
         raise NotImplementedError("Subclasses must implement this method")
 
