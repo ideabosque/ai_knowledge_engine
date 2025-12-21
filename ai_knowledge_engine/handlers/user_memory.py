@@ -246,16 +246,16 @@ class UserMemoryHandler:
     def get_long_term_memory(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
         """Get long term memory for user"""
 
+        user_id = user_data.get("user_id")
+        user_query = user_data.get("user_query", "")
+        query_context = user_data.get("query_context", {})
+
         memory_result = {
             "user_uuid": user_id,
             "profile": {},
             "interests": [],
             "preferences": [],
         }
-
-        user_id = user_data.get("user_id")
-        user_query = user_data.get("user_query", "")
-        query_context = user_data.get("query_context", {})
 
         # Get long term memory from database
         # ltm_list = resolve_long_term_memory_list(

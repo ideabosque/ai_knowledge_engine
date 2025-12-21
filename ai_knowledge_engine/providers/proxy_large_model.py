@@ -3,7 +3,6 @@ from .large_models.abstract_model import AbstractModel
 # from .large_models.spacy_provider import SpacyProvider
 from .large_models.openai_provider import OpenaiProvider
 from .large_models.ollama_provider import OllamaProvider
-from .large_models.ollama_cloud_provider import OllamaCloudProvider
 
 
 class ProxyLargeModel(object):
@@ -18,7 +17,5 @@ class ProxyLargeModel(object):
         #     self.provider = SpacyProvider(aws_s3_client, **setting)
         elif process_model == "ollama":
             self.provider = OllamaProvider(aws_s3_client, **setting)
-        elif process_model == "ollama_cloud":
-            self.provider = OllamaCloudProvider(**setting)
         else:
             raise Exception("Invalid provider")

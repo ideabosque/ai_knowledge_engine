@@ -1,6 +1,6 @@
 import boto3, logging, sys, os, traceback, zipfile, tempfile, atexit
 from typing import Dict, List, Any, Optional, Callable
-from silvaengine_utility import Utility
+from silvaengine_utility import Utility, Serializer
 from ..providers.proxy_large_model import ProxyLargeModel
 from ..models import utils
 
@@ -235,7 +235,7 @@ class Config:
 
             return _class(
                 logger,
-                **Utility.json_loads(Utility.json_dumps(setting)),
+                **Serializer.json_normalize(setting),
             )
         except Exception as e:
             log = traceback.format_exc()

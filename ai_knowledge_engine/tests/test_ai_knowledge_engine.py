@@ -4,6 +4,7 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
+from enum import nonmember
 import json
 import logging
 import os
@@ -219,7 +220,9 @@ Please the return the extracted data in the following format:
 """,
     },
     "endpoint_id": os.getenv("ENDPOINT_ID"),
+    "part_id": os.getenv("PART_ID"),
     "test_mode": os.getenv("TEST_MODE"),
+    "execute_mode": os.getenv("EXECUTE_MODE"),
     "swap_bucket_name": os.getenv("SWAP_BUCKET_NAME"),
     "process_model": os.getenv("PROCESS_MODEL"),
     "spacy_model": os.getenv("SPACY_MODEL"),
@@ -255,9 +258,9 @@ Please the return the extracted data in the following format:
     "ollama_api_key": os.getenv("OLLAMA_API_KEY"),
 }
 
-sys.path.insert(0, f"{os.getenv('BASE_DIR')}/ai_knowledge_engine")
+sys.path.insert(0, "/var/www/projects/ideabosque/silvaengine_utility")
+sys.path.insert(2, f"{os.getenv('BASE_DIR')}/ai_knowledge_engine")
 sys.path.insert(1, f"{os.getenv('BASE_DIR')}/silvaengine_dynamodb_base")
-sys.path.insert(2, f"{os.getenv('BASE_DIR')}/silvaengine_utility")
 sys.path.insert(3, f"{os.getenv('BASE_DIR')}/neo4j_graph_connector")
 sys.path.insert(4, f"{os.getenv('BASE_DIR')}/redis_stack_connector")
 sys.path.insert(5, f"{os.getenv('BASE_DIR')}/silvaengine_base")
@@ -266,23 +269,25 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger()
 
 from ai_knowledge_engine import AIKnowledgeEngine
-from silvaengine_utility import Utility
+from silvaengine_utility import Utility, Graphql
 
 
 class AIKnowledgeEngineTest(unittest.TestCase):
     def setUp(self):
+        context = {
+            "logger": logger,
+            "endpoint_id": setting.get("endpoint_id"),
+            "part_id": setting.get("part_id"),
+            "setting": setting,
+        }
         self.ai_knowledge_engine = AIKnowledgeEngine(logger, **setting)
-        endpoint_id = setting.get("endpoint_id")
-        test_mode = setting.get("test_mode")
-        self.schema = Utility.fetch_graphql_schema(
-            logger,
-            endpoint_id,
+        self.schema = Graphql.fetch_graphql_schema(
+            context,
             "ai_knowledge_graphql",
-            setting=setting,
-            test_mode=test_mode,
+            aws_lambda=None
         )
         # print(setting)
-        # print(self.schema)
+        print(self.schema)
         logger.info("Initiate AIKnowledgeEngineTest ...")
 
     def tearDown(self):
@@ -996,6 +1001,9 @@ class AIKnowledgeEngineTest(unittest.TestCase):
 
     # @unittest.skip("demonstrating skipping")
     def test_long_term_memory(self):
+        print(f"------------schema----------:\n{self.schema}\n")
+        query = Graphql.generate_graphql_operation("longTermMemory", "Query", self.schema)
+        print(f"longTermMemory query:\n{query}\n")
         payload = {
             "query": """query longTermMemory (
                 $userId: String!
@@ -1014,7 +1022,7 @@ class AIKnowledgeEngineTest(unittest.TestCase):
                 }
             }""",
             "variables": {
-                "userId": "user_000002"
+                "userId": "user_000003"
             },
         }
         response = self.ai_knowledge_engine.ai_knowledge_graphql(**payload)
